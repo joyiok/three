@@ -254,10 +254,13 @@ export class Renderer {
     }
   }
 
-  private drawSoldier(kind: SoldierKind, level: number, px: number, py: number, alpha = 1): void {
+  private drawSoldier(kind: SoldierKind, level: number, px: number, py: number, alpha = 1, scale = 1): void {
     const c = this.ctx;
     c.save();
     c.globalAlpha = alpha;
+    c.translate(px, py);
+    if (scale !== 1) c.scale(scale, scale);
+    c.translate(-px, -py);
     // 忠字用深金，其余用主墨色
     const color = kind === '忠' ? '#9a7426' : '#2a2520';
     c.fillStyle = color;
@@ -350,7 +353,8 @@ export class Renderer {
         c.stroke();
         c.restore();
       }
-      this.drawSoldier(s.kind, s.level, px, py, dragging ? 0.35 : 1);
+      const off = fx.soldierOffset(s.id);
+      this.drawSoldier(s.kind, s.level, px + off.dx * this.cell, py + off.dy * this.cell, dragging ? 0.35 : 1, off.scale);
     }
 
     // 敌人
@@ -362,6 +366,7 @@ export class Renderer {
       const isBoss = e.kind === 'boss';
       const isElite = e.kind === '将';
       const size = this.cell * (isBoss ? 0.82 : isElite ? 0.7 : 0.58);
+      const flash = fx.enemyFlashAmt(e.id);
       c.save();
       c.font = `bold ${size}px ${KAI}`;
       c.textAlign = 'center';
@@ -379,6 +384,13 @@ export class Renderer {
       c.fillStyle = isBoss || isElite ? '#7d2a20' : '#b03a2e';
       c.fillText(e.word, px, py);
       c.shadowColor = 'transparent';
+      // 受击闪白
+      if (flash > 0) {
+        c.globalAlpha = flash * 0.85;
+        c.fillStyle = '#fff';
+        c.fillText(e.word, px, py);
+        c.globalAlpha = 1;
+      }
       // 血条：朱砂红条 + 深底 + 描边，更醒目
       const bw = this.cell * (isBoss ? 0.92 : isElite ? 0.72 : 0.6);
       const bx = px - bw / 2;

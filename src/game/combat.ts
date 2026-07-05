@@ -14,11 +14,11 @@ export function damageEnemy(gs: GameState, level: LevelDef, e: Enemy, dmg: numbe
   if (e.hp <= 0) return;
   e.hp -= dmg;
   const pos = enemyPos(level, e);
-  gs.events.push({ t: 'hit', x: pos.x, y: pos.y, damage: dmg });
+  gs.events.push({ t: 'hit', x: pos.x, y: pos.y, damage: dmg, enemyId: e.id });
   if (e.hp <= 0) {
     gs.enemies = gs.enemies.filter((v) => v.id !== e.id);
     gs.food += e.bounty;
-    gs.events.push({ t: 'kill', x: pos.x, y: pos.y, bounty: e.bounty });
+    gs.events.push({ t: 'kill', x: pos.x, y: pos.y, bounty: e.bounty, enemyId: e.id });
   }
 }
 
@@ -44,7 +44,7 @@ function attack(gs: GameState, level: LevelDef, s: Soldier, target: Enemy): void
   const at = s.cell!;
   const dmg = soldierDamage(s.kind, s.level);
   const range = soldierRange(s.kind, s.level);
-  gs.events.push({ t: 'shoot', kind: s.kind, from: { ...at }, to: enemyPos(level, target) });
+  gs.events.push({ t: 'shoot', kind: s.kind, from: { ...at }, to: enemyPos(level, target), soldierId: s.id });
 
   if (s.kind === '弓') {
     gs.projectiles.push({

@@ -76,12 +76,12 @@ export interface LevelDef {
 
 export type GameEvent =
   | { t: 'recruit' }
-  | { t: 'deploy' }
-  | { t: 'merge'; cell: Vec; level: number }
+  | { t: 'deploy'; cell: Vec; soldierId: number }
+  | { t: 'merge'; cell: Vec; level: number; soldierId: number }
   | { t: 'sell' }
-  | { t: 'shoot'; kind: SoldierKind; from: Vec; to: Vec }
-  | { t: 'hit'; x: number; y: number; damage: number }
-  | { t: 'kill'; x: number; y: number; bounty: number }
+  | { t: 'shoot'; kind: SoldierKind; from: Vec; to: Vec; soldierId: number }
+  | { t: 'hit'; x: number; y: number; damage: number; enemyId: number }
+  | { t: 'kill'; x: number; y: number; bounty: number; enemyId: number }
   | { t: 'leak'; damage: number }
   | { t: 'waveStart'; wave: number }
   | { t: 'boss'; word: string }

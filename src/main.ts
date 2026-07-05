@@ -232,12 +232,27 @@ export class GameScreen {
   };
 
   private loop = (ts: number): void => {
-    const dt = Math.min(0.05, (ts - this.lastTs) / 1000);
+    const rawDt = Math.min(0.05, (ts - this.lastTs) / 1000);
     this.lastTs = ts;
+    // 命中停顿期间大幅减慢逻辑，但视觉继续
+    const dt = this.fx.hitstop > 0 ? rawDt * 0.12 : rawDt;
     const events = this.engine.tick(dt);
     for (const e of events) {
       this.fx.spawn(e);
       this.audio.play(e);
+      if (e.t === 'shoot') {
+        // 攻击冲刺：朝目标方向
+        const dx = e.to.x - e.from.x;
+        const dy = e.to.y - e.from.y;
+        const len = Math.hypot(dx, dy) || 1;
+        this.fx.soldierLunge(e.soldierId, dx / len, dy / len);
+      } else if (e.t === 'hit') {
+        this.fx.enemyFlash(e.enemyId);
+      } else if (e.t === 'merge') {
+        this.fx.soldierMerge(e.soldierId);
+      } else if (e.t === 'deploy') {
+        this.fx.soldierDrop(e.soldierId);
+      }
       if (e.t === 'waveStart') {
         this.bannerWave.textContent = `第 ${e.wave + 1} 波`;
         this.bannerWave.classList.add('show');

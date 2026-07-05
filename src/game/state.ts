@@ -94,15 +94,15 @@ export function moveSoldier(level: LevelDef, gs: GameState, from: Loc, to: Loc):
   if (!dst) {
     clearAt(gs, from);
     setAt(gs, to, src);
-    if (to.type === 'cell') gs.events.push({ t: 'deploy' });
+    if (to.type === 'cell') gs.events.push({ t: 'deploy', cell: { ...to.cell }, soldierId: src.id });
     return true;
   }
   if (dst.kind === src.kind && dst.level === src.level) {
     clearAt(gs, from);
     dst.level += 1;
     dst.cooldown = 0;
-    if (to.type === 'cell') gs.events.push({ t: 'merge', cell: { ...to.cell }, level: dst.level });
-    else gs.events.push({ t: 'merge', cell: { x: -1, y: -1 }, level: dst.level });
+    if (to.type === 'cell') gs.events.push({ t: 'merge', cell: { ...to.cell }, level: dst.level, soldierId: dst.id });
+    else gs.events.push({ t: 'merge', cell: { x: -1, y: -1 }, level: dst.level, soldierId: dst.id });
     return true;
   }
   // 互换
