@@ -53,10 +53,15 @@ export function showLevelSelect(
       .join('');
     return `
       <div class="lv-card ${unlocked ? '' : 'locked'}" data-index="${i}">
-        <div class="lv-no">第 ${i + 1} 关</div>
-        <div class="lv-name">${lv.name}</div>
-        <div class="lv-stars">${unlocked ? starHtml : '🔒'}</div>
-        <div class="lv-info">${lv.waves.length} 波 · ${lv.bossWord}王</div>
+        <div class="lv-card-left">
+          <div class="lv-no">第 ${i + 1} 关</div>
+          <div class="lv-name">${lv.name}</div>
+          <div class="lv-stars">${unlocked ? starHtml : '🔒'}</div>
+        </div>
+        <div class="lv-card-right">
+          <div class="lv-info">${lv.waves.length} 波</div>
+          <div class="lv-info">${lv.bossWord}王</div>
+        </div>
       </div>`;
   }).join('');
   root.innerHTML = `
