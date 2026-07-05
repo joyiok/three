@@ -8,6 +8,8 @@ import { Renderer, type DragGhost } from './render/canvas';
 import { Effects } from './render/effects';
 import { Hud } from './ui/hud';
 import { Dock } from './ui/dock';
+import { showLevelSelect, showMenu, showResult } from './ui/screens';
+import { loadMuted, loadProgress, saveMuted, saveStars, starsFor } from './storage';
 
 interface DragState {
   from: Loc;
@@ -28,14 +30,14 @@ export class GameScreen {
   private ghost: DragGhost | null = null;
   private selected: Vec | null = null;
   private muted = false;
-  private onExit: () => void;
+  private onFinish: (won: boolean, stars: number) => void;
 
   constructor(
     private root: HTMLElement,
     level: LevelDef,
-    onExit: () => void,
+    onFinish: (won: boolean, stars: number) => void,
   ) {
-    this.onExit = onExit;
+    this.onFinish = onFinish;
     this.engine = new Engine(level);
     this.root.innerHTML = `
       <div class="hud" data-hud></div>
@@ -49,6 +51,7 @@ export class GameScreen {
     const hudRoot = root.querySelector('[data-hud]') as HTMLElement;
     const dockRoot = root.querySelector('[data-dock]') as HTMLElement;
 
+    this.muted = loadMuted();
     this.hud = new Hud(hudRoot, {
       onPause: () => {
         this.engine.paused = !this.engine.paused;
@@ -60,6 +63,7 @@ export class GameScreen {
       },
       onMute: () => {
         this.muted = !this.muted;
+        saveMuted(this.muted);
         this.syncHud();
       },
     });
@@ -86,15 +90,9 @@ export class GameScreen {
     document.addEventListener('visibilitychange', this.onVisibility);
   }
 
-  private onVisibility = (): void => {
-    if (document.hidden) this.engine.paused = true;
-    this.syncHud();
-  };
-
   private bindCanvasDrag(): void {
-    const c = this.canvas;
-    c.addEventListener('pointerdown', (ev) => {
-      const rect = c.getBoundingClientRect();
+    this.canvas.addEventListener('pointerdown', (ev) => {
+      const rect = this.canvas.getBoundingClientRect();
       const px = ev.clientX - rect.left;
       const py = ev.clientY - rect.top;
       const cell = this.renderer.pxToCell(px, py);
@@ -168,7 +166,6 @@ export class GameScreen {
     this.ghost = null;
     this.dock.dragIndex = null;
 
-    // 找落点
     const rect = this.canvas.getBoundingClientRect();
     const inCanvas =
       ev.clientX >= rect.left &&
@@ -181,19 +178,17 @@ export class GameScreen {
       const cell = this.renderer.pxToCell(ev.clientX - rect.left, ev.clientY - rect.top);
       if (cell) to = { type: 'cell', cell };
     } else {
-      // 检查是否落在某个背包槽
       const el = document.elementFromPoint(ev.clientX, ev.clientY);
-      const slotEl = el?.closest('[data-slot]') as HTMLElement | null;
-      if (slotEl) {
-        const idx = Number(slotEl.dataset.slot);
-        if (!Number.isNaN(idx)) to = { type: 'bench', index: idx };
-      }
-      // 检查是否落在铲子
       const shovelEl = el?.closest('[data-shovel]') as HTMLElement | null;
       if (shovelEl && drag.from.type === 'cell') {
         sellSoldier(this.engine.gs, drag.from.cell);
         this.dock.update(this.engine.gs);
         return;
+      }
+      const slotEl = el?.closest('[data-slot]') as HTMLElement | null;
+      if (slotEl) {
+        const idx = Number(slotEl.dataset.slot);
+        if (!Number.isNaN(idx)) to = { type: 'bench', index: idx };
       }
     }
 
@@ -209,6 +204,11 @@ export class GameScreen {
     });
   }
 
+  private onVisibility = (): void => {
+    if (document.hidden) this.engine.paused = true;
+    this.syncHud();
+  };
+
   private loop = (ts: number): void => {
     const dt = Math.min(0.05, (ts - this.lastTs) / 1000);
     this.lastTs = ts;
@@ -218,17 +218,17 @@ export class GameScreen {
     this.syncHud();
     this.dock.update(this.engine.gs);
 
-    const opts = {
+    this.renderer.draw(this.engine.gs, this.fx, {
       ghost: this.ghost,
       selected: this.selected,
-      dragFrom:
-        this.drag && this.drag.from.type === 'cell' ? this.drag.from.cell : null,
-    };
-    this.renderer.draw(this.engine.gs, this.fx, opts);
+      dragFrom: this.drag && this.drag.from.type === 'cell' ? this.drag.from.cell : null,
+    });
 
     if (this.engine.gs.status !== 'playing') {
       cancelAnimationFrame(this.raf);
-      this.onExit();
+      const won = this.engine.gs.status === 'won';
+      const stars = won ? starsFor(this.engine.gs.baseHp) : 0;
+      this.onFinish(won, stars);
       return;
     }
     this.raf = requestAnimationFrame(this.loop);
@@ -240,25 +240,73 @@ export class GameScreen {
   }
 }
 
-// 临时入口：直接启动第一关，循环到下一关
-function start(): void {
-  const app = document.querySelector<HTMLDivElement>('#app')!;
-  let levelIndex = 0;
-  let screen: GameScreen | null = null;
+// ===== Router =====
+class App {
+  private root: HTMLElement;
+  private levelIndex = 0;
+  private game: GameScreen | null = null;
+  private lastResult: { won: boolean; stars: number } = { won: false, stars: 0 };
+  private progress = loadProgress();
 
-  const launch = () => {
-    if (screen) screen.destroy();
-    const level = LEVELS[levelIndex];
-    screen = new GameScreen(app, level, () => {
-      if (levelIndex < LEVELS.length - 1) {
-        levelIndex++;
-        launch();
-      } else {
-        app.innerHTML = `<h1 style="text-align:center;margin-top:40vh">通关！</h1>`;
-      }
+  constructor() {
+    this.root = document.querySelector<HTMLDivElement>('#app')!;
+    this.showMenu();
+  }
+
+  private showMenu(): void {
+    this.clearGame();
+    showMenu(this.root, () => this.showLevelSelect());
+  }
+
+  private showLevelSelect(): void {
+    this.clearGame();
+    this.progress = loadProgress();
+    showLevelSelect(
+      this.root,
+      this.progress,
+      (i) => {
+        this.levelIndex = i;
+        this.startGame();
+      },
+      () => this.showMenu(),
+    );
+  }
+
+  private startGame(): void {
+    this.clearGame();
+    this.root.innerHTML = '';
+    const level = LEVELS[this.levelIndex];
+    this.game = new GameScreen(this.root, level, (won, stars) => {
+      this.lastResult = { won, stars };
+      if (won) saveStars(level.id, stars);
+      this.progress = loadProgress();
+      // 延迟一帧再切到结算页，避免 canvas 抖动
+      setTimeout(() => this.showResult(), 400);
     });
-  };
-  launch();
+  }
+
+  private showResult(): void {
+    this.clearGame();
+    const hasNext = this.levelIndex < LEVELS.length - 1;
+    showResult(this.root, {
+      won: this.lastResult.won,
+      stars: this.lastResult.stars,
+      hasNext,
+      onRetry: () => this.startGame(),
+      onNext: () => {
+        this.levelIndex++;
+        this.startGame();
+      },
+      onBack: () => this.showLevelSelect(),
+    });
+  }
+
+  private clearGame(): void {
+    if (this.game) {
+      this.game.destroy();
+      this.game = null;
+    }
+  }
 }
 
-start();
+new App();
