@@ -10,6 +10,7 @@ import { Hud } from './ui/hud';
 import { Dock } from './ui/dock';
 import { showLevelSelect, showMenu, showResult } from './ui/screens';
 import { loadMuted, loadProgress, saveMuted, saveStars, starsFor } from './storage';
+import { GameAudio } from './audio';
 
 interface DragState {
   from: Loc;
@@ -30,6 +31,7 @@ export class GameScreen {
   private ghost: DragGhost | null = null;
   private selected: Vec | null = null;
   private muted = false;
+  private audio = new GameAudio();
   private onFinish: (won: boolean, stars: number) => void;
 
   constructor(
@@ -64,6 +66,7 @@ export class GameScreen {
       onMute: () => {
         this.muted = !this.muted;
         saveMuted(this.muted);
+        this.audio.setMuted(this.muted);
         this.syncHud();
       },
     });
@@ -84,6 +87,14 @@ export class GameScreen {
 
     this.bindCanvasDrag();
     this.bindShovel();
+
+    // 首次交互启动音频
+    const initAudio = () => {
+      this.audio.init();
+      this.audio.startBgm();
+      window.removeEventListener('pointerdown', initAudio);
+    };
+    window.addEventListener('pointerdown', initAudio);
 
     this.lastTs = performance.now();
     this.loop(this.lastTs);
@@ -205,7 +216,10 @@ export class GameScreen {
   }
 
   private onVisibility = (): void => {
-    if (document.hidden) this.engine.paused = true;
+    if (document.hidden) {
+      this.engine.paused = true;
+      this.audio.stopBgm();
+    }
     this.syncHud();
   };
 
@@ -213,7 +227,10 @@ export class GameScreen {
     const dt = Math.min(0.05, (ts - this.lastTs) / 1000);
     this.lastTs = ts;
     const events = this.engine.tick(dt);
-    for (const e of events) this.fx.spawn(e);
+    for (const e of events) {
+      this.fx.spawn(e);
+      this.audio.play(e);
+    }
     this.fx.update(dt);
     this.syncHud();
     this.dock.update(this.engine.gs);
@@ -237,6 +254,7 @@ export class GameScreen {
   destroy(): void {
     cancelAnimationFrame(this.raf);
     document.removeEventListener('visibilitychange', this.onVisibility);
+    this.audio.stopBgm();
   }
 }
 
