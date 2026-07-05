@@ -1,6 +1,7 @@
 import type { Progress } from '../storage';
 import { LEVELS } from '../game/levels';
 import { isUnlocked } from '../storage';
+import type { Difficulty } from '../game/versus';
 
 function el(html: string): HTMLElement {
   const div = document.createElement('div');
@@ -12,7 +13,6 @@ function el(html: string): HTMLElement {
 function inkTransition(root: HTMLElement, done: () => void): void {
   const overlay = el('<div class="ink-fade"></div>');
   root.appendChild(overlay);
-  // 触发动画
   requestAnimationFrame(() => overlay.classList.add('ink-fade-in'));
   setTimeout(() => {
     done();
@@ -22,7 +22,11 @@ function inkTransition(root: HTMLElement, done: () => void): void {
   }, 220);
 }
 
-export function showMenu(root: HTMLElement, onStart: () => void): void {
+export function showMenu(
+  root: HTMLElement,
+  onCampaign: () => void,
+  onVersus: () => void,
+): void {
   root.innerHTML = `
     <div class="screen menu-screen">
       <div class="title-block">
@@ -31,12 +35,14 @@ export function showMenu(root: HTMLElement, onStart: () => void): void {
         <div class="tagline">墨守营寨 · 字御千军</div>
       </div>
       <div class="menu-art">山</div>
-      <button class="big-btn menu-start">开 始</button>
-      <div class="hint">拖放士兵至草地，同字同级可合成</div>
+      <div class="menu-btns">
+        <button class="big-btn menu-campaign">战 役</button>
+        <button class="big-btn menu-versus next-btn">对 战</button>
+      </div>
+      <div class="hint">战役单人闯关 · 对战 1v1 匹配</div>
     </div>`;
-  root.querySelector('.menu-start')!.addEventListener('click', () => {
-    inkTransition(root, onStart);
-  });
+  root.querySelector('.menu-campaign')!.addEventListener('click', () => inkTransition(root, onCampaign));
+  root.querySelector('.menu-versus')!.addEventListener('click', () => inkTransition(root, onVersus));
 }
 
 export function showLevelSelect(
@@ -111,4 +117,105 @@ export function showResult(root: HTMLElement, opts: ResultOpts): void {
   root.querySelector('[data-back]')!.addEventListener('click', opts.onBack);
   const next = root.querySelector('[data-next]');
   if (next) next.addEventListener('click', opts.onNext);
+}
+
+/** 对战模式选择 + 假匹配动画 */
+export interface MatchOpts {
+  onMatched: (difficulty: Difficulty, localTwoPlayer: boolean) => void;
+  onBack: () => void;
+}
+
+const DIFF_INFO: Record<Difficulty, { name: string; desc: string }> = {
+  easy: { name: '新 手', desc: 'AI 反应慢、布阵稀' },
+  normal: { name: '普 通', desc: '均衡对手' },
+  hard: { name: '困 难', desc: 'AI 主动进攻用道具' },
+  nightmare: { name: '噩 梦', desc: 'AI 高频征兵+连发' },
+};
+
+export function showMatch(root: HTMLElement, opts: MatchOpts): void {
+  root.innerHTML = `
+    <div class="screen match-screen">
+      <div class="screen-head">
+        <button class="back-btn" data-back>←</button>
+        <h2>对 战</h2>
+      </div>
+      <div class="match-body">
+        <div class="match-section-title">选择难度（匹配 AI）</div>
+        <div class="match-diffs">
+          ${(['easy', 'normal', 'hard', 'nightmare'] as Difficulty[])
+            .map(
+              (d) => `<button class="diff-card diff-${d}" data-diff="${d}">
+                <div class="diff-name">${DIFF_INFO[d].name}</div>
+                <div class="diff-desc">${DIFF_INFO[d].desc}</div>
+              </button>`,
+            )
+            .join('')}
+        </div>
+        <div class="match-section-title">或</div>
+        <button class="big-btn match-local" data-local>本 地 双 人</button>
+        <div class="hint">同设备轮流操作上下半场</div>
+      </div>
+    </div>`;
+  root.querySelector('[data-back]')!.addEventListener('click', opts.onBack);
+  root.querySelectorAll<HTMLElement>('[data-diff]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const d = btn.dataset.diff as Difficulty;
+      showMatchSpinner(root, d, false, opts.onMatched);
+    });
+  });
+  root.querySelector('[data-local]')!.addEventListener('click', () => {
+    showMatchSpinner(root, 'normal', true, opts.onMatched);
+  });
+}
+
+function showMatchSpinner(
+  root: HTMLElement,
+  diff: Difficulty,
+  local: boolean,
+  onMatched: (d: Difficulty, l: boolean) => void,
+): void {
+  root.innerHTML = `
+    <div class="screen match-spinner-screen">
+      <div class="spinner-title">寻 找 对 手</div>
+      <div class="spinner">
+        <div class="spinner-dot"></div>
+        <div class="spinner-dot"></div>
+        <div class="spinner-dot"></div>
+      </div>
+      <div class="spinner-hint" data-hint>匹配中…</div>
+    </div>`;
+  const hint = root.querySelector('[data-hint]') as HTMLElement;
+  const steps = ['匹配中…', '正在连接…', '找到对手！'];
+  let i = 0;
+  const timer = setInterval(() => {
+    i++;
+    if (i >= steps.length) {
+      clearInterval(timer);
+      inkTransition(root, () => onMatched(diff, local));
+      return;
+    }
+    hint.textContent = steps[i];
+  }, 600);
+}
+
+/** 对战结算 */
+export function showVersusResult(
+  root: HTMLElement,
+  result: 'won' | 'lost' | 'draw',
+  onRetry: () => void,
+  onBack: () => void,
+): void {
+  const title = result === 'won' ? '大 捷' : result === 'lost' ? '兵 败' : '势 均 力 敌';
+  const mark = result === 'won' ? '胜' : result === 'lost' ? '败' : '和';
+  root.innerHTML = `
+    <div class="screen result-screen">
+      <h2 class="result-title">${title}</h2>
+      <div class="result-fail-mark">${mark}</div>
+      <div class="result-actions">
+        <button class="big-btn" data-retry>再 战</button>
+        <button class="text-btn" data-back>返回</button>
+      </div>
+    </div>`;
+  root.querySelector('[data-retry]')!.addEventListener('click', onRetry);
+  root.querySelector('[data-back]')!.addEventListener('click', onBack);
 }

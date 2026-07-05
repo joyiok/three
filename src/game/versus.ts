@@ -128,6 +128,8 @@ export interface VersusEvent {
   bounty?: number;
   kind?: SoldierKind;
   level?: number;
+  enemyId?: number;
+  soldierId?: number;
 }
 
 export interface VersusGame {
@@ -423,12 +425,12 @@ function damageEnemy(game: VersusGame, side: Side, path: Vec[], e: Enemy, dmg: n
   if (e.hp <= 0) return;
   e.hp -= dmg;
   const pos = enemyPos(path, e);
-  game.events.push({ t: 'hit', side, x: pos.x, y: pos.y, damage: dmg });
+  game.events.push({ t: 'hit', side, x: pos.x, y: pos.y, damage: dmg, enemyId: e.id });
   if (e.hp <= 0) {
     const p = game[side];
     p.enemies = p.enemies.filter((v) => v.id !== e.id);
     p.food += e.bounty;
-    game.events.push({ t: 'kill', side, x: pos.x, y: pos.y, bounty: e.bounty });
+    game.events.push({ t: 'kill', side, x: pos.x, y: pos.y, bounty: e.bounty, enemyId: e.id });
     maybeDropItem(p);
   }
 }
@@ -455,7 +457,7 @@ function attack(game: VersusGame, side: Side, path: Vec[], s: Soldier, target: E
   const at = s.cell!;
   const dmg = soldierDamage(s.kind, s.level);
   const range = soldierRange(s.kind, s.level);
-  game.events.push({ t: 'shoot', side, kind: s.kind, x: at.x, y: at.y });
+  game.events.push({ t: 'shoot', side, kind: s.kind, x: at.x, y: at.y, soldierId: s.id });
   if (s.kind === '弓') {
     p.projectiles.push({ id: p.nextId++, x: at.x, y: at.y, targetId: target.id, speed: ARROW_SPEED, damage: dmg });
     return;

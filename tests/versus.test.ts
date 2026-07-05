@@ -8,7 +8,6 @@ import {
   canPlace,
   cellKindOf,
   createVersusGame,
-  enemyPos,
   gainItem,
   moveSoldier,
   pathFor,
