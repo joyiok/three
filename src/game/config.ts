@@ -3,13 +3,13 @@ import type { EnemyKind, SoldierKind } from './types';
 export const GRID_W = 7;
 export const GRID_H = 10;
 export const BENCH_SIZE = 6;
-export const START_FOOD = 15;
+export const START_FOOD = 30;
 export const BASE_HP = 10;
 export const RECRUIT_BASE = 10;
-export const RECRUIT_STEP = 2;
-export const RECRUIT_MAX = 30;
-export const SELL_REFUND_PER_LEVEL = 4;
-export const WAVE_CLEAR_BONUS = 10;
+export const RECRUIT_STEP = 1;
+export const RECRUIT_MAX = 24;
+export const SELL_REFUND_PER_LEVEL = 5;
+export const WAVE_CLEAR_BONUS = 15;
 export const WAVE_AUTO_DELAY = 3;
 export const DMG_GROWTH = 1.8;
 export const RANGE_GROWTH = 0.15;
@@ -44,11 +44,11 @@ export interface EnemySpec {
 }
 
 export const ENEMIES: Record<EnemyKind, EnemySpec> = {
-  斗: { hp: 30, speed: 1.0, bounty: 2, damage: 1 },
-  贼: { hp: 20, speed: 1.6, bounty: 2, damage: 1 },
-  兵: { hp: 80, speed: 0.8, bounty: 4, damage: 1 },
-  将: { hp: 300, speed: 0.7, bounty: 10, damage: 2 },
-  boss: { hp: 0, speed: 0.5, bounty: 50, damage: 10 },
+  斗: { hp: 30, speed: 1.0, bounty: 3, damage: 1 },
+  贼: { hp: 20, speed: 1.6, bounty: 3, damage: 1 },
+  兵: { hp: 80, speed: 0.8, bounty: 6, damage: 1 },
+  将: { hp: 300, speed: 0.7, bounty: 15, damage: 2 },
+  boss: { hp: 0, speed: 0.5, bounty: 80, damage: 10 },
 };
 
 export function soldierDamage(kind: SoldierKind, level: number): number {

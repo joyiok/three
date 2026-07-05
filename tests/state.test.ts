@@ -34,7 +34,7 @@ describe('state 征兵', () => {
     const gs = createGame(level);
     expect(recruit(gs, () => 0)).toBe(true);
     expect(gs.food).toBe(START_FOOD - 10);
-    expect(gs.recruitCost).toBe(12);
+    expect(gs.recruitCost).toBe(11);
     expect(gs.bench[0]?.kind).toBe('刀');
     expect(gs.bench[0]?.level).toBe(1);
   });
@@ -55,14 +55,14 @@ describe('state 征兵', () => {
     expect(gs.food).toBe(before);
   });
 
-  it('征兵价格封顶 30', () => {
+  it('征兵价格封顶 24', () => {
     const gs = createGame(level);
     gs.food = 9999;
     for (let i = 0; i < 15; i++) {
       recruit(gs, () => 0);
       gs.bench = gs.bench.map(() => null); // 腾空以便继续买
     }
-    expect(gs.recruitCost).toBe(30);
+    expect(gs.recruitCost).toBe(24);
   });
 });
 
@@ -121,13 +121,13 @@ describe('state 部署与合成', () => {
 });
 
 describe('state 回收', () => {
-  it('铲除返 4×等级 粮', () => {
+  it('铲除返 5×等级 粮', () => {
     const gs = createGame(level);
     benchWith(gs, 0, '刀', 3);
     moveSoldier(level, gs, { type: 'bench', index: 0 }, { type: 'cell', cell: { x: 0, y: 1 } });
     const before = gs.food;
     expect(sellSoldier(gs, { x: 0, y: 1 })).toBe(true);
-    expect(gs.food).toBe(before + 12);
+    expect(gs.food).toBe(before + 15);
     expect(gs.soldiers).toHaveLength(0);
     expect(sellSoldier(gs, { x: 0, y: 1 })).toBe(false);
   });

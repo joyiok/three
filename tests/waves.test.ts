@@ -11,9 +11,9 @@ describe('waves', () => {
     const gs = createGame(level);
     expect(startWave(gs, level)).toBe(true);
     expect(gs.waveIndex).toBe(0);
-    expect(gs.spawnQueue).toHaveLength(5); // 第 1 波 斗×5
+    expect(gs.spawnQueue).toHaveLength(6); // 第 1 波 斗×6
     const ats = gs.spawnQueue.map((s) => s.at);
-    [0, 1.2, 2.4, 3.6, 4.8].forEach((v, i) => expect(ats[i]).toBeCloseTo(v));
+    [0, 0.9, 1.8, 2.7, 3.6, 4.5].forEach((v, i) => expect(ats[i]).toBeCloseTo(v));
     expect(gs.events.some((e) => e.t === 'waveStart')).toBe(true);
   });
 

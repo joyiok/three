@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { slowOf, soldierDamage } from '../src/game/config';
+import { ENEMIES, slowOf, soldierDamage } from '../src/game/config';
 import { tickCombat } from '../src/game/combat';
 import { LEVELS } from '../src/game/levels';
 import { createGame } from '../src/game/state';
@@ -16,13 +16,35 @@ function addSoldier(gs: GameState, kind: SoldierKind, lv: number, cell: Vec) {
 function addEnemy(gs: GameState, progress: number, hp = 10000): Enemy {
   const e: Enemy = {
     id: gs.nextId++, kind: '斗', word: '斗', hp, maxHp: hp,
-    speed: 0, slow: 0, pathIndex: 0, progress, bounty: 2, damage: 1,
+    speed: 0, slow: 0, pathIndex: 0, progress, bounty: ENEMIES['斗'].bounty, damage: 1,
   };
   gs.enemies.push(e);
   return e;
 }
 
 describe('combat 索敌与攻击', () => {
+  it('近战优先距离最近（眼前）的敌人', () => {
+    const gs = createGame(level);
+    addSoldier(gs, '刀', 3, { x: 2, y: 1 }); // 射程1.6
+    const near = addEnemy(gs, 1); // (3,1) 距1
+    const far = addEnemy(gs, 2);  // (3,2) 距1.41 <1.6，也在射程内但progress更大
+    tickCombat(gs, level, 0.016);
+    const dmg = soldierDamage('刀', 3);
+    expect(near.hp).toBe(10000 - dmg); // 近战打最近的
+    expect(far.hp).toBe(10000);
+  });
+
+  it('弓优先 progress 最大的敌人', () => {
+    const gs = createGame(level);
+    addSoldier(gs, '弓', 1, { x: 1, y: 1 }); // 射程3.5
+    const near = addEnemy(gs, 1); // (3,1) 距2
+    const far = addEnemy(gs, 2);  // (3,2) 距2.24，progress更大
+    tickCombat(gs, level, 0.016);
+    expect(gs.projectiles).toHaveLength(1);
+    expect(gs.projectiles[0].targetId).toBe(far.id);
+    expect(near.hp).toBe(10000);
+  });
+
   it('攻击射程内 progress 最大的敌人', () => {
     const gs = createGame(level);
     addSoldier(gs, '刀', 1, { x: 2, y: 1 }); // 射程1.3
@@ -92,7 +114,7 @@ describe('combat 索敌与攻击', () => {
     const before = gs.food;
     tickCombat(gs, level, 0.016);
     expect(gs.enemies).toHaveLength(0);
-    expect(gs.food).toBe(before + 2);
+    expect(gs.food).toBe(before + 3);
     expect(gs.events.some((e) => e.t === 'kill')).toBe(true);
   });
 });

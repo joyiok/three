@@ -22,11 +22,19 @@ export function damageEnemy(gs: GameState, level: LevelDef, e: Enemy, dmg: numbe
   }
 }
 
-function findTarget(gs: GameState, level: LevelDef, at: Vec, range: number): Enemy | null {
+/** 索敌：远程（弓）打 progress 最大；其余近战打距离最近（眼前优先） */
+function findTarget(gs: GameState, level: LevelDef, s: Soldier, at: Vec, range: number): Enemy | null {
+  const isRanged = s.kind === '弓';
   let best: Enemy | null = null;
+  let bestKey = -Infinity;
   for (const e of gs.enemies) {
-    if (dist(at, enemyPos(level, e)) > range) continue;
-    if (!best || e.progress > best.progress) best = e;
+    const d = dist(at, enemyPos(level, e));
+    if (d > range) continue;
+    const key = isRanged ? e.progress : -d;
+    if (key > bestKey) {
+      bestKey = key;
+      best = e;
+    }
   }
   return best;
 }
@@ -91,7 +99,7 @@ export function tickCombat(gs: GameState, level: LevelDef, dt: number): void {
     if (spec.rate <= 0 || !s.cell) continue;
     s.cooldown -= dt;
     if (s.cooldown > 0) continue;
-    const target = findTarget(gs, level, s.cell, soldierRange(s.kind, s.level));
+    const target = findTarget(gs, level, s, s.cell, soldierRange(s.kind, s.level));
     if (!target) {
       s.cooldown = 0;
       continue;
