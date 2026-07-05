@@ -1,0 +1,48 @@
+:root {
+  --paper: #e8e0d0;
+  --paper-dark: #d8cdb8;
+  --ink: #2b2b2b;
+  --ink-soft: #5a5248;
+  --wood: #8a5a3b;
+  --wood-dark: #6e4529;
+  --grass: #9db8a4;
+  --dirt: #b5a397;
+  --red: #a4392c;
+  --gold: #b8860b;
+  --font-kai: 'Kaiti SC', 'KaiTi', 'STKaiti', 'Noto Serif SC', serif;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html,
+body {
+  height: 100%;
+  overscroll-behavior: none;
+}
+
+body {
+  background: #c9bda6;
+  font-family: var(--font-kai);
+  color: var(--ink);
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+}
+
+#app {
+  height: 100%;
+  height: 100dvh;
+  max-width: 480px;
+  margin: 0 auto;
+  background: var(--paper);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 0 24px rgba(0, 0, 0, 0.25);
+}
