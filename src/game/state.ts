@@ -24,6 +24,7 @@ export function createGame(level: LevelDef): GameState {
     projectiles: [],
     waveIndex: -1,
     waveTimer: WAVE_AUTO_DELAY,
+    intermission: true,
     waveClock: 0,
     spawnQueue: [],
     status: 'playing',

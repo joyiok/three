@@ -101,6 +101,8 @@ export interface GameState {
   waveIndex: number;
   /** 距自动开下一波的倒计时（秒） */
   waveTimer: number;
+  /** true = 波间休整中（含开局），倒计时结束自动开波 */
+  intermission: boolean;
   /** 当前波已进行时间（秒） */
   waveClock: number;
   spawnQueue: SpawnEvent[];
