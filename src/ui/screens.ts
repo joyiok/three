@@ -22,6 +22,29 @@ function inkTransition(root: HTMLElement, done: () => void): void {
   }, 220);
 }
 
+function resultFlavor(won: boolean, stars: number): string {
+  if (!won) return '胜败乃兵家常事，卷土重来！';
+  if (stars >= 3) return '谈笑间，樯橹灰飞烟灭';
+  if (stars === 2) return '力保营寨，胜！';
+  return '惨胜如败，险守此关';
+}
+
+function victoryConfetti(): string {
+  const colors = ['var(--gold)', 'var(--cinnabar)', 'var(--ink)', 'var(--paper-soft)'];
+  return `
+    <div class="result-confetti" aria-hidden="true">
+      ${Array.from({ length: 18 }, (_, i) => {
+        const angle = (i / 18) * Math.PI * 2;
+        const spread = 70 + (i % 5) * 18;
+        const dx = Math.cos(angle) * spread;
+        const dy = -80 - Math.sin(angle) * 36 - (i % 4) * 18;
+        const size = 6 + (i % 3) * 2;
+        const delay = (i % 6) * 0.05;
+        return `<span style="--dx:${dx}px;--dy:${dy}px;--rot:${180 + i * 19}deg;--delay:${delay}s;--size:${size}px;--confetti-color:${colors[i % colors.length]}"></span>`;
+      }).join('')}
+    </div>`;
+}
+
 export function showMenu(
   root: HTMLElement,
   onCampaign: () => void,
@@ -105,12 +128,16 @@ export function showResult(root: HTMLElement, opts: ResultOpts): void {
     .join('');
   root.innerHTML = `
     <div class="screen result-screen">
-      <h2 class="result-title">${won ? '胜 利' : '营寨失守'}</h2>
-      ${won ? `<div class="result-stars">${starsHtml}</div>` : '<div class="result-fail-mark">败</div>'}
-      <div class="result-actions">
-        <button class="big-btn" data-retry>${won ? '再 战' : '重 来'}</button>
-        ${hasNext && won ? '<button class="big-btn next-btn" data-next>下 一 关</button>' : ''}
-        <button class="text-btn" data-back>选关</button>
+      ${won ? victoryConfetti() : ''}
+      <div class="result-panel">
+        <h2 class="result-title">${won ? '胜 利' : '营寨失守'}</h2>
+        ${won ? `<div class="result-stars">${starsHtml}</div>` : '<div class="result-fail-mark">败</div>'}
+        <div class="result-flavor">${resultFlavor(won, stars)}</div>
+        <div class="result-actions">
+          <button class="big-btn" data-retry>${won ? '再 战' : '重 来'}</button>
+          ${hasNext && won ? '<button class="big-btn next-btn" data-next>下 一 关</button>' : ''}
+          <button class="text-btn" data-back>选关</button>
+        </div>
       </div>
     </div>`;
   root.querySelector('[data-retry]')!.addEventListener('click', opts.onRetry);
