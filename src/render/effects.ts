@@ -72,6 +72,18 @@ export class Effects {
     this.shakeTime = 0.35;
   }
 
+  praise(tier: number, x: number, y: number): void {
+    const level = Math.max(1, Math.min(5, tier));
+    const gold = '#c89b3c';
+    const ink = '#1f1a16';
+    this.inkSplash(x, y, 8 + level * 4, ink);
+    this.burst(x, y, 6 + level * 3, level >= 3 ? gold : '#7d2a20', 1.2 + level * 0.18, 0.045 + level * 0.008, 'shard');
+    this.ring(x, y, 0.08, 0.55 + level * 0.12, level >= 4 ? gold : ink, 4, 0.32 + level * 0.03, 'rgba(200,155,60,0.10)');
+    if (level >= 4) {
+      this.shock(x, y, 0.75 + level * 0.05, 'rgba(200,155,60,0.24)');
+    }
+  }
+
   /** 士兵发起一次攻击冲刺 */
   soldierLunge(id: number, dirX: number, dirY: number): void {
     const f = this.soldierFx.get(id) ?? { id };

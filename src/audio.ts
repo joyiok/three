@@ -115,6 +115,19 @@ export class GameAudio {
     });
   }
 
+  praise(tier: number): void {
+    if (!this.ctx || this.muted) return;
+    const level = Math.max(1, Math.min(5, tier));
+    const root = SCALE[Math.min(SCALE.length - 1, level - 1)] * (level >= 4 ? 1.5 : 1);
+    const notes = [root, root * 1.25, root * 1.5];
+    notes.forEach((freq, i) => {
+      setTimeout(() => this.tone(freq, 0.08 + i * 0.02, 'triangle', 0.16 + level * 0.03, 2.2), i * 92);
+    });
+    if (level >= 3) {
+      setTimeout(() => this.sweep(root * 1.1, root * 2.1, 0.16, 'sawtooth', 0.12 + level * 0.02), 64);
+    }
+  }
+
   play(e: GameEvent): void {
     if (!this.ctx || this.muted) return;
     switch (e.t) {
