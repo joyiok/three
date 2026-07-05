@@ -32,6 +32,10 @@ export class GameScreen {
   private selected: Vec | null = null;
   private muted = false;
   private audio = new GameAudio();
+  private bannerWave: HTMLElement;
+  private bannerBoss: HTMLElement;
+  private bossBannerTimer = 0;
+  private waveBannerTimer = 0;
   private onFinish: (won: boolean, stars: number) => void;
 
   constructor(
@@ -45,10 +49,14 @@ export class GameScreen {
       <div class="hud" data-hud></div>
       <div class="stage" data-stage>
         <canvas data-canvas></canvas>
+        <div class="banner banner-wave" data-banner-wave></div>
+        <div class="banner banner-boss" data-banner-boss></div>
       </div>
       <div class="dock" data-dock></div>`;
     this.canvas = root.querySelector('[data-canvas]') as HTMLCanvasElement;
     this.renderer = new Renderer(this.canvas, level);
+    this.bannerWave = root.querySelector('[data-banner-wave]') as HTMLElement;
+    this.bannerBoss = root.querySelector('[data-banner-boss]') as HTMLElement;
 
     const hudRoot = root.querySelector('[data-hud]') as HTMLElement;
     const dockRoot = root.querySelector('[data-dock]') as HTMLElement;
@@ -230,6 +238,23 @@ export class GameScreen {
     for (const e of events) {
       this.fx.spawn(e);
       this.audio.play(e);
+      if (e.t === 'waveStart') {
+        this.bannerWave.textContent = `第 ${e.wave + 1} 波`;
+        this.bannerWave.classList.add('show');
+        this.waveBannerTimer = 1.6;
+      } else if (e.t === 'boss') {
+        this.bannerBoss.textContent = `❰ ${e.word} 王 来 袭 ❱`;
+        this.bannerBoss.classList.add('show');
+        this.bossBannerTimer = 2.6;
+      }
+    }
+    if (this.waveBannerTimer > 0) {
+      this.waveBannerTimer -= dt;
+      if (this.waveBannerTimer <= 0) this.bannerWave.classList.remove('show');
+    }
+    if (this.bossBannerTimer > 0) {
+      this.bossBannerTimer -= dt;
+      if (this.bossBannerTimer <= 0) this.bannerBoss.classList.remove('show');
     }
     this.fx.update(dt);
     this.syncHud();

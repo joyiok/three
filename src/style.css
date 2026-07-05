@@ -140,6 +140,42 @@ body {
   cursor: pointer;
 }
 
+/* Banners */
+.banner {
+  position: absolute;
+  left: 50%;
+  transform: translate(-50%, -120%);
+  background: rgba(43, 43, 43, 0.85);
+  color: #f5ecd6;
+  font-family: var(--font-kai);
+  font-weight: bold;
+  letter-spacing: 6px;
+  padding: 8px 24px;
+  border-radius: 6px;
+  border: 1px solid #7d2a20;
+  white-space: nowrap;
+  opacity: 0;
+  transition: transform 0.35s ease-out, opacity 0.35s;
+  pointer-events: none;
+  z-index: 10;
+  top: 14px;
+}
+.banner.show {
+  transform: translate(-50%, 0);
+  opacity: 1;
+}
+.banner-boss {
+  background: linear-gradient(180deg, #a4392c, #7d2a20);
+  border-color: #4a1a10;
+  font-size: 20px;
+  letter-spacing: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+.banner-wave {
+  background: rgba(43, 43, 43, 0.82);
+  font-size: 16px;
+}
+
 /* ============ Dock ============ */
 .dock {
   flex: 0 0 auto;
