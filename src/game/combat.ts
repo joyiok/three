@@ -36,7 +36,7 @@ function attack(gs: GameState, level: LevelDef, s: Soldier, target: Enemy): void
   const at = s.cell!;
   const dmg = soldierDamage(s.kind, s.level);
   const range = soldierRange(s.kind, s.level);
-  gs.events.push({ t: 'shoot', kind: s.kind, from: { ...at } });
+  gs.events.push({ t: 'shoot', kind: s.kind, from: { ...at }, to: enemyPos(level, target) });
 
   if (s.kind === '弓') {
     gs.projectiles.push({

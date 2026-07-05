@@ -79,7 +79,7 @@ export type GameEvent =
   | { t: 'deploy' }
   | { t: 'merge'; cell: Vec; level: number }
   | { t: 'sell' }
-  | { t: 'shoot'; kind: SoldierKind; from: Vec }
+  | { t: 'shoot'; kind: SoldierKind; from: Vec; to: Vec }
   | { t: 'hit'; x: number; y: number; damage: number }
   | { t: 'kill'; x: number; y: number; bounty: number }
   | { t: 'leak'; damage: number }
