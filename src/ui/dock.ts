@@ -1,5 +1,6 @@
-import { BENCH_SIZE } from '../game/config';
-import type { GameState } from '../game/types';
+import { BENCH_SIZE, EARLY_CALL_MAX } from '../game/config';
+import { wavePreview } from '../game/waves';
+import type { GameState, LevelDef } from '../game/types';
 
 export interface DockHandlers {
   onRecruit: () => void;
@@ -15,6 +16,7 @@ export class Dock {
   private recruitBtn: HTMLButtonElement;
   private costEl: HTMLElement;
   private waveBtn: HTMLButtonElement;
+  private previewEl: HTMLElement;
 
   constructor(root: HTMLElement, handlers: DockHandlers) {
     root.className = 'dock';
@@ -23,6 +25,7 @@ export class Dock {
       (_, i) => `<div class="slot" data-slot="${i}"></div>`,
     ).join('');
     root.innerHTML = `
+      <div class="wave-preview" data-preview></div>
       <div class="dock-row">
         <div class="camp"><div class="camp-roof"></div><div class="camp-body">营</div></div>
         <div class="slot slot-shovel" data-shovel>⛏</div>
@@ -37,6 +40,7 @@ export class Dock {
     this.recruitBtn = root.querySelector('[data-recruit]')!;
     this.costEl = root.querySelector('[data-cost]')!;
     this.waveBtn = root.querySelector('[data-wave]') as HTMLButtonElement;
+    this.previewEl = root.querySelector('[data-preview]')!;
     this.recruitBtn.addEventListener('click', handlers.onRecruit);
     this.waveBtn.addEventListener('click', handlers.onStartWave);
     for (let i = 0; i < BENCH_SIZE; i++) {
@@ -49,13 +53,13 @@ export class Dock {
   /** 拖动中的背包槽（半透明显示） */
   dragIndex: number | null = null;
 
-  update(gs: GameState): void {
+  update(gs: GameState, level: LevelDef): void {
     for (let i = 0; i < BENCH_SIZE; i++) {
       const s = gs.bench[i];
       const el = this.slotEls[i];
       const html = s
         ? `<span class="slot-word${s.kind === '忠' ? ' word-loyal' : ''}">${s.kind}</span>${
-            s.level > 1 ? `<span class="slot-level">${s.level}</span>` : ''
+            s.level > 1 ? `<span class="slot-level${s.level >= 3 ? ' slot-level-gold' : ''}">${s.level}</span>` : ''
           }`
         : '';
       if (el.innerHTML !== html) el.innerHTML = html;
@@ -66,16 +70,30 @@ export class Dock {
     if (this.costEl.textContent !== String(gs.recruitCost)) {
       this.costEl.textContent = String(gs.recruitCost);
     }
-    if (gs.intermission && gs.waveIndex < 0) {
-      this.waveBtn.textContent = '开 战';
-      this.waveBtn.disabled = false;
-    } else if (gs.intermission) {
+    // 下一波预告
+    const preview = wavePreview(level, gs.waveIndex + 1);
+    const isLastDone = gs.waveIndex >= level.waves.length - 1;
+    const previewHtml =
+      !isLastDone && preview.length > 0
+        ? `<span class="wave-preview-label">${gs.intermission ? '将至' : '下波'}</span>` +
+          preview
+            .map((p) => `<span class="wave-preview-item"><b>${p.word}</b>×${p.count}</span>`)
+            .join('')
+        : '';
+    if (this.previewEl.innerHTML !== previewHtml) this.previewEl.innerHTML = previewHtml;
+    this.previewEl.classList.toggle('show', previewHtml !== '');
+
+    let waveHtml: string;
+    if (gs.intermission) {
       const sec = Math.max(0, Math.ceil(gs.waveTimer));
-      this.waveBtn.textContent = `开 波 (${sec}s)`;
+      const bonus = Math.min(EARLY_CALL_MAX, sec);
+      const label = gs.waveIndex < 0 ? '开 战' : '开 波';
+      waveHtml = `${label} <span class="wave-bonus">+${bonus}🍚</span> <span class="wave-count">(${sec}s)</span>`;
       this.waveBtn.disabled = false;
     } else {
-      this.waveBtn.textContent = `第 ${gs.waveIndex + 1} 波`;
+      waveHtml = `第 ${gs.waveIndex + 1} 波`;
       this.waveBtn.disabled = true;
     }
+    if (this.waveBtn.innerHTML !== waveHtml) this.waveBtn.innerHTML = waveHtml;
   }
 }

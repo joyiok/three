@@ -66,14 +66,15 @@ describe('waves', () => {
     expect(gs.events.some((e) => e.t === 'lost')).toBe(true);
   });
 
-  it('非末波清空发粮并倒计时自动开波', () => {
+  it('非末波清空发粮（含利息）并倒计时自动开波', () => {
     const gs = createGame(level);
     startWave(gs, level);
     gs.spawnQueue = [];
     gs.enemies = [];
     const before = gs.food;
     tickWave(gs, level, 0.1);
-    expect(gs.food).toBe(before + WAVE_CLEAR_BONUS);
+    const interest = Math.floor((before + WAVE_CLEAR_BONUS) / 10);
+    expect(gs.food).toBe(before + WAVE_CLEAR_BONUS + interest);
     expect(gs.waveTimer).toBeCloseTo(WAVE_AUTO_DELAY - 0, 5);
     tickWave(gs, level, WAVE_AUTO_DELAY + 0.1);
     expect(gs.waveIndex).toBe(1);

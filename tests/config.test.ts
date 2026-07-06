@@ -27,9 +27,12 @@ describe('config', () => {
     expect(slowOf(10)).toBeCloseTo(0.6);
   });
 
-  it('敌人 HP 随波次与关卡系数缩放', () => {
+  it('敌人 HP 随波次与关卡系数（渐进）缩放', () => {
     expect(enemyHp('斗', 1, 1)).toBe(30);
-    expect(enemyHp('斗', 5, 1.4)).toBe(Math.round(30 * (1 + 0.15 * 4) * 1.4));
+    // 关卡系数第 1 波不生效，随波次爬坡（第 5 波爬到 40%）
+    expect(enemyHp('斗', 1, 2.5)).toBe(30);
+    expect(enemyHp('斗', 5, 1.4)).toBe(Math.round(30 * (1 + 0.15 * 4) * (1 + 0.4 * 0.4)));
+    expect(enemyHp('斗', 11, 1.4)).toBe(Math.round(30 * (1 + 0.15 * 10) * 1.4));
     expect(enemyHp('boss', 1, 1, 1500)).toBe(1500);
   });
 

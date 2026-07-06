@@ -30,6 +30,12 @@ export interface Enemy {
   progress: number;
   bounty: number;
   damage: number;
+  /** 护甲：每次受击减免固定伤害（枪无视） */
+  armor?: number;
+  /** 每秒回复 maxHp 的比例（将的回气） */
+  regen?: number;
+  /** 骑兵践踏减速的截止时刻（gs.time） */
+  dazeUntil?: number;
 }
 
 export interface Projectile {
@@ -66,6 +72,8 @@ export interface LevelDef {
   id: string;
   name: string;
   coeff: number;
+  /** 起始粮食（缺省用 START_FOOD）；双路关卡给更多 */
+  startFood?: number;
   /** 10 行、每行 7 字符：'#'=path '.'=grass 'r'=rock */
   grid: string[];
   paths: Vec[][];
@@ -83,6 +91,7 @@ export type GameEvent =
   | { t: 'hit'; x: number; y: number; damage: number; enemyId: number }
   | { t: 'kill'; x: number; y: number; bounty: number; enemyId: number }
   | { t: 'leak'; damage: number }
+  | { t: 'income'; amount: number; source: 'early' | 'interest' | 'farm' }
   | { t: 'waveStart'; wave: number }
   | { t: 'boss'; word: string }
   | { t: 'won' }

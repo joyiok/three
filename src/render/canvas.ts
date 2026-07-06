@@ -273,15 +273,16 @@ export class Renderer {
     c.shadowOffsetY = 1.5;
     c.fillText(kind, px, py + this.cell * 0.02);
     c.shadowColor = 'transparent';
-    // 等级角标：朱砂底白字小圆
+    // 等级角标：朱砂底白字小圆；3 级起（解锁技能）换鎏金底
     if (level > 1) {
       const bx = px + this.cell * 0.3;
       const by = py - this.cell * 0.3;
-      c.fillStyle = '#b03a2e';
+      const gold = level >= 3;
+      c.fillStyle = gold ? '#9a7426' : '#b03a2e';
       c.beginPath();
       c.arc(bx, by, this.cell * 0.15, 0, Math.PI * 2);
       c.fill();
-      c.strokeStyle = '#7d2a20';
+      c.strokeStyle = gold ? '#6e5316' : '#7d2a20';
       c.lineWidth = 1;
       c.stroke();
       c.fillStyle = '#f7eed8';
@@ -375,10 +376,16 @@ export class Renderer {
       c.shadowColor = 'rgba(125,42,32,0.35)';
       c.shadowBlur = isBoss ? 6 : 3;
       c.shadowOffsetY = 1.5;
+      const enraged = isBoss && e.hp < e.maxHp * 0.5;
       if (isBoss) {
-        // Boss 朱砂描边 + 加大
-        c.strokeStyle = '#7d2a20';
+        // Boss 朱砂描边 + 加大；狂暴时描边发红
+        c.strokeStyle = enraged ? '#c0392b' : '#7d2a20';
         c.lineWidth = 3;
+        c.strokeText(e.word, px, py);
+      } else if ((e.armor ?? 0) > 0) {
+        // 带甲敌人：铁灰描边
+        c.strokeStyle = 'rgba(72,78,94,0.8)';
+        c.lineWidth = 1.6;
         c.strokeText(e.word, px, py);
       }
       c.fillStyle = isBoss || isElite ? '#7d2a20' : '#b03a2e';
@@ -411,6 +418,12 @@ export class Renderer {
         c.fillStyle = '#9a7426';
         c.font = `${this.cell * 0.22}px ${KAI}`;
         c.fillText('缓', px + this.cell * 0.32, py - size * 0.55);
+      }
+      // 狂暴标记
+      if (enraged) {
+        c.fillStyle = '#c0392b';
+        c.font = `bold ${this.cell * 0.24}px ${KAI}`;
+        c.fillText('怒', px - this.cell * 0.42, py - size * 0.55);
       }
       c.restore();
     }

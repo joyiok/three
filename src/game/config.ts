@@ -10,10 +10,31 @@ export const RECRUIT_STEP = 1;
 export const RECRUIT_MAX = 24;
 export const SELL_REFUND_PER_LEVEL = 5;
 export const WAVE_CLEAR_BONUS = 15;
-export const WAVE_AUTO_DELAY = 3;
+export const WAVE_AUTO_DELAY = 8;
+/** 开局准备时间（秒）：留给玩家征兵布阵 */
+export const PREP_TIME = 25;
+/** 提前开波：按剩余秒数奖励粮食，封顶 */
+export const EARLY_CALL_MAX = 10;
+/** 波末利息：每 10 粮 +1，封顶 */
+export const INTEREST_UNIT = 10;
+export const INTEREST_CAP = 10;
+/** 忠「屯田」：每波结束按等级产粮 */
+export const FARM_FOOD_PER_LEVEL = 3;
+/** 每波清空征兵价回落 */
+export const RECRUIT_DECAY = 1;
 export const DMG_GROWTH = 1.8;
 export const RANGE_GROWTH = 0.15;
+/** 攻速每级 +10%（让合成稳赚不亏） */
+export const RATE_GROWTH = 0.1;
+/** 骑溅射半径每级成长 */
+export const SPLASH_GROWTH = 0.08;
 export const HP_WAVE_GROWTH = 0.15;
+/** 骑「践踏」（3 级起）：命中减速比例与时长 */
+export const DAZE_SLOW = 0.5;
+export const DAZE_TIME = 0.8;
+/** Boss 低于半血狂暴提速 */
+export const BOSS_ENRAGE_HP = 0.5;
+export const BOSS_ENRAGE_SPEED = 1.4;
 
 export interface SoldierSpec {
   range: number;
@@ -41,14 +62,18 @@ export interface EnemySpec {
   speed: number;
   bounty: number;
   damage: number;
+  /** 每次受击减免固定伤害（枪无视），随关卡系数放大 */
+  armor?: number;
+  /** 每秒回复 maxHp 的比例 */
+  regen?: number;
 }
 
 export const ENEMIES: Record<EnemyKind, EnemySpec> = {
   斗: { hp: 30, speed: 1.0, bounty: 3, damage: 1 },
   贼: { hp: 20, speed: 1.6, bounty: 3, damage: 1 },
-  兵: { hp: 80, speed: 0.8, bounty: 6, damage: 1 },
-  将: { hp: 300, speed: 0.7, bounty: 15, damage: 2 },
-  boss: { hp: 0, speed: 0.5, bounty: 80, damage: 10 },
+  兵: { hp: 80, speed: 0.8, bounty: 6, damage: 1, armor: 3 },
+  将: { hp: 300, speed: 0.7, bounty: 15, damage: 2, armor: 6, regen: 0.008 },
+  boss: { hp: 0, speed: 0.45, bounty: 80, damage: 7, armor: 8 },
 };
 
 export function soldierDamage(kind: SoldierKind, level: number): number {
@@ -59,14 +84,42 @@ export function soldierRange(kind: SoldierKind, level: number): number {
   return SOLDIERS[kind].range + RANGE_GROWTH * (level - 1);
 }
 
+export function soldierRate(kind: SoldierKind, level: number): number {
+  return SOLDIERS[kind].rate * (1 + RATE_GROWTH * (level - 1));
+}
+
+export function soldierSplash(level: number): number {
+  return (SOLDIERS['骑'].splash ?? 0) + SPLASH_GROWTH * (level - 1);
+}
+
+/** 弓「连珠」：3 级双矢、5 级三矢 */
+export function arrowCount(level: number): number {
+  return level >= 5 ? 3 : level >= 3 ? 2 : 1;
+}
+
+/** 刀「连斩」：3 级二连、5 级三连（追加斩 50% 伤害） */
+export function bladeStrikes(level: number): number {
+  return level >= 5 ? 3 : level >= 3 ? 2 : 1;
+}
+
+export function enemyArmor(kind: EnemyKind, coeff: number): number {
+  return Math.round((ENEMIES[kind].armor ?? 0) * coeff);
+}
+
 export function slowOf(level: number): number {
   const aura = SOLDIERS['忠'].slowAura!;
   return Math.min(aura.base + aura.perLevel * (level - 1), aura.max);
 }
 
+/** 关卡系数渐进生效：第 1 波为 1.0，到第 11 波爬满全额，避免后期关卡开局即无解 */
+export function waveCoeff(coeff: number, wave: number): number {
+  const ramp = Math.min(1, Math.max(0, wave - 1) / 10);
+  return 1 + (coeff - 1) * ramp;
+}
+
 export function enemyHp(kind: EnemyKind, wave: number, coeff: number, bossHp?: number): number {
   if (kind === 'boss') return Math.round(bossHp ?? 0);
-  return Math.round(ENEMIES[kind].hp * (1 + HP_WAVE_GROWTH * (wave - 1)) * coeff);
+  return Math.round(ENEMIES[kind].hp * (1 + HP_WAVE_GROWTH * (wave - 1)) * waveCoeff(coeff, wave));
 }
 
 export function rollSoldier(rand: () => number): SoldierKind {

@@ -74,6 +74,7 @@ export const LEVELS: LevelDef[] = [
     id: 'julu',
     name: '巨鹿',
     coeff: 1.4,
+    startFood: 35,
     bossWord: '瓒',
     bossHp: 2500,
     grid: [
@@ -107,8 +108,9 @@ export const LEVELS: LevelDef[] = [
     id: 'guandu',
     name: '官渡',
     coeff: 1.9,
+    startFood: 45,
     bossWord: '绍',
-    bossHp: 4000,
+    bossHp: 3200,
     grid: [
       '.#...#.',
       '.#...#.',
@@ -142,9 +144,10 @@ export const LEVELS: LevelDef[] = [
   {
     id: 'chibi',
     name: '赤壁',
-    coeff: 2.5,
+    coeff: 2.2,
+    startFood: 55,
     bossWord: '操',
-    bossHp: 6000,
+    bossHp: 4500,
     grid: [
       'r...#.r',
       '....#..',

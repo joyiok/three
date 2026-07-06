@@ -6,9 +6,9 @@ describe('levels', () => {
   it('四关顺序与关键参数正确', () => {
     expect(LEVELS.map((l) => l.id)).toEqual(['huangjin', 'julu', 'guandu', 'chibi']);
     expect(LEVELS.map((l) => l.waves.length)).toEqual([10, 11, 11, 12]);
-    expect(LEVELS.map((l) => l.coeff)).toEqual([1.0, 1.4, 1.9, 2.5]);
+    expect(LEVELS.map((l) => l.coeff)).toEqual([1.0, 1.4, 1.9, 2.2]);
     expect(LEVELS.map((l) => l.bossWord)).toEqual(['角', '瓒', '绍', '操']);
-    expect(LEVELS.map((l) => l.bossHp)).toEqual([1500, 2500, 4000, 6000]);
+    expect(LEVELS.map((l) => l.bossHp)).toEqual([1500, 2500, 3200, 4500]);
   });
 
   it('网格为 10 行 × 7 列且只含合法字符', () => {

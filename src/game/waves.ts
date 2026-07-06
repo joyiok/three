@@ -1,4 +1,19 @@
-import { ENEMIES, WAVE_AUTO_DELAY, WAVE_CLEAR_BONUS, enemyHp } from './config';
+import {
+  BOSS_ENRAGE_HP,
+  BOSS_ENRAGE_SPEED,
+  EARLY_CALL_MAX,
+  ENEMIES,
+  FARM_FOOD_PER_LEVEL,
+  INTEREST_CAP,
+  INTEREST_UNIT,
+  RECRUIT_BASE,
+  RECRUIT_DECAY,
+  WAVE_AUTO_DELAY,
+  WAVE_CLEAR_BONUS,
+  enemyArmor,
+  enemyHp,
+  waveCoeff,
+} from './config';
 import type { Enemy, GameState, LevelDef, SpawnEvent, Vec } from './types';
 
 export function pathLength(level: LevelDef, pathIndex: number): number {
@@ -37,6 +52,31 @@ export function startWave(gs: GameState, level: LevelDef): boolean {
   return true;
 }
 
+/** 手动提前开波：按剩余休整秒数奖励粮食 */
+export function callWave(gs: GameState, level: LevelDef): boolean {
+  if (!gs.intermission) return false;
+  const remaining = Math.max(0, gs.waveTimer);
+  if (!startWave(gs, level)) return false;
+  const bonus = Math.min(EARLY_CALL_MAX, Math.ceil(remaining));
+  if (bonus > 0) {
+    gs.food += bonus;
+    gs.events.push({ t: 'income', amount: bonus, source: 'early' });
+  }
+  return true;
+}
+
+/** 某一波的敌人构成（合并同字计数），用于 UI 预告 */
+export function wavePreview(level: LevelDef, waveIndex: number): { word: string; count: number }[] {
+  const wave = level.waves[waveIndex];
+  if (!wave) return [];
+  const counts = new Map<string, number>();
+  for (const grp of wave.groups) {
+    const word = grp.kind === 'boss' ? level.bossWord : grp.kind;
+    counts.set(word, (counts.get(word) ?? 0) + grp.count);
+  }
+  return [...counts].map(([word, count]) => ({ word, count }));
+}
+
 function spawnEnemy(gs: GameState, level: LevelDef, ev: SpawnEvent): void {
   const spec = ENEMIES[ev.kind];
   const hp = enemyHp(ev.kind, gs.waveIndex + 1, level.coeff, level.bossHp);
@@ -52,6 +92,9 @@ function spawnEnemy(gs: GameState, level: LevelDef, ev: SpawnEvent): void {
     progress: 0,
     bounty: spec.bounty,
     damage: spec.damage,
+    armor: enemyArmor(ev.kind, waveCoeff(level.coeff, gs.waveIndex + 1)),
+    regen: spec.regen ?? 0,
+    dazeUntil: 0,
   });
 }
 
@@ -74,7 +117,14 @@ export function tickWave(gs: GameState, level: LevelDef, dt: number): void {
   // 移动与漏怪
   const survivors: Enemy[] = [];
   for (const e of gs.enemies) {
-    e.progress += e.speed * (1 - e.slow) * dt;
+    // 将「回气」：持续回复
+    if ((e.regen ?? 0) > 0 && e.hp < e.maxHp) {
+      e.hp = Math.min(e.maxHp, e.hp + e.regen! * e.maxHp * dt);
+    }
+    // Boss 半血狂暴提速
+    const enraged = e.kind === 'boss' && e.hp < e.maxHp * BOSS_ENRAGE_HP;
+    const speed = enraged ? e.speed * BOSS_ENRAGE_SPEED : e.speed;
+    e.progress += speed * (1 - e.slow) * dt;
     if (e.progress >= pathLength(level, e.pathIndex)) {
       gs.baseHp = Math.max(0, gs.baseHp - e.damage);
       gs.events.push({ t: 'leak', damage: e.damage });
@@ -97,6 +147,23 @@ export function tickWave(gs: GameState, level: LevelDef, dt: number): void {
       gs.events.push({ t: 'won' });
     } else {
       gs.food += WAVE_CLEAR_BONUS;
+      // 利息：每 10 粮 +1，鼓励存粮
+      const interest = Math.min(Math.floor(gs.food / INTEREST_UNIT), INTEREST_CAP);
+      if (interest > 0) {
+        gs.food += interest;
+        gs.events.push({ t: 'income', amount: interest, source: 'interest' });
+      }
+      // 忠「屯田」：场上每个忠按等级产粮
+      const farm = gs.soldiers.reduce(
+        (sum, s) => sum + (s.kind === '忠' && s.cell ? FARM_FOOD_PER_LEVEL * s.level : 0),
+        0,
+      );
+      if (farm > 0) {
+        gs.food += farm;
+        gs.events.push({ t: 'income', amount: farm, source: 'farm' });
+      }
+      // 征兵价随时间回落
+      gs.recruitCost = Math.max(RECRUIT_BASE, gs.recruitCost - RECRUIT_DECAY);
       gs.intermission = true;
       gs.waveTimer = WAVE_AUTO_DELAY;
     }

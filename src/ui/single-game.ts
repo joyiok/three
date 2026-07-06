@@ -1,6 +1,6 @@
 import { Engine } from '../game/engine';
 import { moveSoldier, recruit, sellSoldier, soldierAt } from '../game/state';
-import { startWave } from '../game/waves';
+import { callWave } from '../game/waves';
 import type { LevelDef, Loc, SoldierKind, Vec } from '../game/types';
 import { Renderer, type DragGhost } from '../render/canvas';
 import { Effects } from '../render/effects';
@@ -110,13 +110,12 @@ export class SingleGameScreen {
     this.dock = new Dock(dockRoot, {
       onRecruit: () => {
         recruit(this.engine.gs);
-        this.dock.update(this.engine.gs);
+        this.dock.update(this.engine.gs, this.engine.level);
       },
       onSlotDown: (index, ev) => this.startDrag({ type: 'bench', index }, ev),
       onStartWave: () => {
-        if (this.engine.gs.intermission) {
-          startWave(this.engine.gs, this.engine.level);
-          this.dock.update(this.engine.gs);
+        if (callWave(this.engine.gs, this.engine.level)) {
+          this.dock.update(this.engine.gs, this.engine.level);
         }
       },
     });
@@ -157,7 +156,7 @@ export class SingleGameScreen {
     shovel.addEventListener('pointerdown', (ev) => {
       if (this.selected) {
         if (sellSoldier(this.engine.gs, this.selected)) {
-          this.dock.update(this.engine.gs);
+          this.dock.update(this.engine.gs, this.engine.level);
         }
         this.selected = null;
       }
@@ -175,7 +174,7 @@ export class SingleGameScreen {
       kind = s.kind;
       level = s.level;
       this.dock.dragIndex = from.index;
-      this.dock.update(gs);
+      this.dock.update(gs, this.engine.level);
     } else {
       const s = soldierAt(gs, from.cell);
       if (!s) return;
@@ -226,7 +225,7 @@ export class SingleGameScreen {
       const shovelEl = el?.closest('[data-shovel]') as HTMLElement | null;
       if (shovelEl && drag.from.type === 'cell') {
         sellSoldier(this.engine.gs, drag.from.cell);
-        this.dock.update(this.engine.gs);
+        this.dock.update(this.engine.gs, this.engine.level);
         return;
       }
       const slotEl = el?.closest('[data-slot]') as HTMLElement | null;
@@ -236,7 +235,7 @@ export class SingleGameScreen {
       }
     }
     if (to) moveSoldier(this.engine.level, this.engine.gs, drag.from, to);
-    this.dock.update(this.engine.gs);
+    this.dock.update(this.engine.gs, this.engine.level);
   }
 
   private syncHud(): void {
@@ -393,7 +392,7 @@ export class SingleGameScreen {
     }
     this.fx.update(dt);
     this.syncHud();
-    this.dock.update(this.engine.gs);
+    this.dock.update(this.engine.gs, this.engine.level);
     this.renderer.draw(this.engine.gs, this.fx, {
       ghost: this.ghost,
       selected: this.selected,

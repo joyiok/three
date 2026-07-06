@@ -59,7 +59,8 @@ describe('engine', () => {
 
   it('tick 返回并清空事件队列', () => {
     const engine = new Engine(level);
-    const events = engine.tick(5); // 触发第一波开波
+    engine.gs.waveTimer = 1; // 跳过准备期
+    const events = engine.tick(2); // 触发第一波开波
     expect(events.some((e) => e.t === 'waveStart')).toBe(true);
     expect(engine.gs.events).toHaveLength(0);
   });

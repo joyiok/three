@@ -271,6 +271,33 @@ body {
   gap: 6px;
   margin-bottom: 10px;
 }
+/* 下一波预告条 */
+.wave-preview {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 8px;
+  font-family: var(--font-kai);
+  font-size: 13px;
+  color: var(--ink);
+  opacity: 0.85;
+}
+.wave-preview.show {
+  display: flex;
+}
+.wave-preview-label {
+  color: var(--paper-soft);
+  background: var(--wood-dk);
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-size: 12px;
+  letter-spacing: 2px;
+}
+.wave-preview-item b {
+  font-size: 16px;
+  color: var(--cinnabar-dk);
+}
 .camp {
   width: 40px;
   height: 40px;
@@ -360,6 +387,11 @@ body {
   text-align: center;
   border: 1px solid var(--cinnabar-dk);
 }
+/* 3 级起解锁技能：鎏金角标 */
+.slot-level-gold {
+  background: var(--gold-dk);
+  border-color: #6e5316;
+}
 .recruit-btn {
   width: 100%;
   height: 46px;
@@ -412,6 +444,17 @@ body {
   transition: transform 0.15s ease-out, filter 0.15s;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.12);
+}
+.wave-btn .wave-bonus {
+  font-size: 13px;
+  letter-spacing: 0;
+  color: #ffe9a8;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+.wave-btn .wave-count {
+  font-size: 12px;
+  letter-spacing: 0;
+  opacity: 0.85;
 }
 .wave-btn:active:not(:disabled) {
   transform: scale(0.97);

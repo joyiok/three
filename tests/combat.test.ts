@@ -30,7 +30,8 @@ describe('combat 索敌与攻击', () => {
     const far = addEnemy(gs, 2);  // (3,2) 距1.41 <1.6，也在射程内但progress更大
     tickCombat(gs, level, 0.016);
     const dmg = soldierDamage('刀', 3);
-    expect(near.hp).toBe(10000 - dmg); // 近战打最近的
+    // 3 级刀「连斩」：主斩 + 50% 追加斩
+    expect(near.hp).toBe(10000 - dmg - Math.round(dmg * 0.5));
     expect(far.hp).toBe(10000);
   });
 

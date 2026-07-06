@@ -1,6 +1,8 @@
 import {
   BASE_HP,
   BENCH_SIZE,
+  DAZE_SLOW,
+  DAZE_TIME,
   ENEMIES,
   RECRUIT_BASE,
   RECRUIT_MAX,
@@ -8,10 +10,15 @@ import {
   SELL_REFUND_PER_LEVEL,
   SOLDIERS,
   START_FOOD,
+  arrowCount,
+  bladeStrikes,
+  enemyArmor,
   rollSoldier,
   slowOf,
   soldierDamage,
   soldierRange,
+  soldierRate,
+  soldierSplash,
 } from './config';
 import { kindOf, generateMap, type VersusMap } from './versus-map';
 import type { CellKind, EnemyKind, SoldierKind, Vec } from './types';
@@ -76,6 +83,9 @@ export interface Enemy {
   progress: number;
   bounty: number;
   damage: number;
+  armor?: number;
+  regen?: number;
+  dazeUntil?: number;
 }
 
 export interface Projectile {
@@ -396,6 +406,9 @@ function spawnEnemy(p: PlayerState, kind: EnemyKind, _path: Vec[]): void {
     progress: 0,
     bounty: spec.bounty,
     damage: spec.damage,
+    armor: enemyArmor(kind, 1),
+    regen: spec.regen ?? 0,
+    dazeUntil: 0,
   });
 }
 
@@ -421,11 +434,12 @@ function dist(a: Vec, b: Vec): number {
   return Math.hypot(a.x - b.x, a.y - b.y);
 }
 
-function damageEnemy(game: VersusGame, side: Side, path: Vec[], e: Enemy, dmg: number): void {
+function damageEnemy(game: VersusGame, side: Side, path: Vec[], e: Enemy, dmg: number, ignoreArmor = false): void {
   if (e.hp <= 0) return;
-  e.hp -= dmg;
+  const dealt = Math.max(1, dmg - (ignoreArmor ? 0 : (e.armor ?? 0)));
+  e.hp -= dealt;
   const pos = enemyPos(path, e);
-  game.events.push({ t: 'hit', side, x: pos.x, y: pos.y, damage: dmg, enemyId: e.id });
+  game.events.push({ t: 'hit', side, x: pos.x, y: pos.y, damage: dealt, enemyId: e.id });
   if (e.hp <= 0) {
     const p = game[side];
     p.enemies = p.enemies.filter((v) => v.id !== e.id);
@@ -459,10 +473,18 @@ function attack(game: VersusGame, side: Side, path: Vec[], s: Soldier, target: E
   const range = soldierRange(s.kind, s.level);
   game.events.push({ t: 'shoot', side, kind: s.kind, x: at.x, y: at.y, soldierId: s.id });
   if (s.kind === '弓') {
-    p.projectiles.push({ id: p.nextId++, x: at.x, y: at.y, targetId: target.id, speed: ARROW_SPEED, damage: dmg });
+    // 连珠：射程内 progress 前 n 名各一矢
+    const targets = p.enemies
+      .filter((e) => dist(at, enemyPos(path, e)) <= range)
+      .sort((a, b) => b.progress - a.progress)
+      .slice(0, arrowCount(s.level));
+    for (const t of targets) {
+      p.projectiles.push({ id: p.nextId++, x: at.x, y: at.y, targetId: t.id, speed: ARROW_SPEED, damage: dmg });
+    }
     return;
   }
   if (spec.pierce) {
+    // 破甲穿刺
     const tp = enemyPos(path, target);
     const len = dist(at, tp) || 1;
     const dir = { x: (tp.x - at.x) / len, y: (tp.y - at.y) / len };
@@ -472,28 +494,37 @@ function attack(game: VersusGame, side: Side, path: Vec[], s: Soldier, target: E
       const proj = rel.x * dir.x + rel.y * dir.y;
       if (proj < 0 || proj > range) continue;
       const perp = Math.abs(rel.x * dir.y - rel.y * dir.x);
-      if (perp <= PIERCE_W) damageEnemy(game, side, path, e, dmg);
+      if (perp <= PIERCE_W) damageEnemy(game, side, path, e, dmg, true);
     }
     return;
   }
   if (spec.splash) {
+    // 溅射成长 + 3 级践踏
     const tp = enemyPos(path, target);
+    const radius = soldierSplash(s.level);
+    const daze = s.level >= 3;
     for (const e of [...p.enemies]) {
-      if (dist(tp, enemyPos(path, e)) <= spec.splash) damageEnemy(game, side, path, e, dmg);
+      if (dist(tp, enemyPos(path, e)) > radius) continue;
+      if (daze) e.dazeUntil = game.time + DAZE_TIME;
+      damageEnemy(game, side, path, e, dmg);
     }
     return;
   }
+  // 刀连斩
   damageEnemy(game, side, path, target, dmg);
+  for (let i = 1; i < bladeStrikes(s.level); i++) {
+    damageEnemy(game, side, path, target, Math.max(1, Math.round(dmg * 0.5)));
+  }
 }
 
 function tickPlayerCombat(game: VersusGame, side: Side, dt: number): void {
   const p = game[side];
   const path = pathFor(game, side);
   const frozen = p.freezeUntil > game.time;
-  // 减速光环
+  // 减速光环（与骑践踏取较大者）
   for (const e of p.enemies) {
     const pos = enemyPos(path, e);
-    let slow = 0;
+    let slow = game.time < (e.dazeUntil ?? 0) ? DAZE_SLOW : 0;
     for (const s of p.soldiers) {
       if (s.kind !== '忠' || !s.cell) continue;
       if (dist(s.cell, pos) <= soldierRange('忠', s.level)) slow = Math.max(slow, slowOf(s.level));
@@ -511,7 +542,7 @@ function tickPlayerCombat(game: VersusGame, side: Side, dt: number): void {
       s.cooldown = 0;
       continue;
     }
-    s.cooldown = 1 / spec.rate;
+    s.cooldown = 1 / soldierRate(s.kind, s.level);
     attack(game, side, path, s, target);
   }
   // 弹道
@@ -539,6 +570,9 @@ function tickPlayerMovement(game: VersusGame, side: Side, dt: number): void {
   processPendingWaves(p, path, dt);
   const survivors: Enemy[] = [];
   for (const e of p.enemies) {
+    if ((e.regen ?? 0) > 0 && e.hp < e.maxHp) {
+      e.hp = Math.min(e.maxHp, e.hp + e.regen! * e.maxHp * dt);
+    }
     e.progress += e.speed * (1 - e.slow) * dt;
     if (e.progress >= pathLength(path)) {
       p.hp = Math.max(0, p.hp - e.damage);

@@ -220,6 +220,13 @@ export class Effects {
         this.shake(6);
         this.hitstop = Math.max(this.hitstop, 0.06);
         break;
+      case 'income': {
+        // 收入飘字：按来源错开高度，飘在画面下方营寨一侧
+        const label = e.source === 'early' ? '速' : e.source === 'interest' ? '息' : '屯';
+        const y = e.source === 'early' ? 7.1 : e.source === 'interest' ? 7.7 : 8.3;
+        this.float(3, y, `+${e.amount}🍚 ${label}`, '#9a7426', 0.34);
+        break;
+      }
       case 'boss':
         this.shake(12);
         this.hitstop = 0.08;

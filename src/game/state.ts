@@ -1,12 +1,12 @@
 import {
   BASE_HP,
   BENCH_SIZE,
+  PREP_TIME,
   RECRUIT_BASE,
   RECRUIT_MAX,
   RECRUIT_STEP,
   SELL_REFUND_PER_LEVEL,
   START_FOOD,
-  WAVE_AUTO_DELAY,
   rollSoldier,
 } from './config';
 import { cellKind } from './levels';
@@ -15,7 +15,7 @@ import type { GameState, LevelDef, Loc, Soldier, Vec } from './types';
 export function createGame(level: LevelDef): GameState {
   return {
     levelId: level.id,
-    food: START_FOOD,
+    food: level.startFood ?? START_FOOD,
     recruitCost: RECRUIT_BASE,
     baseHp: BASE_HP,
     bench: Array.from({ length: BENCH_SIZE }, () => null),
@@ -23,7 +23,7 @@ export function createGame(level: LevelDef): GameState {
     enemies: [],
     projectiles: [],
     waveIndex: -1,
-    waveTimer: WAVE_AUTO_DELAY,
+    waveTimer: PREP_TIME,
     intermission: true,
     waveClock: 0,
     spawnQueue: [],

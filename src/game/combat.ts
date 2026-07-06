@@ -1,20 +1,42 @@
-import { SOLDIERS, slowOf, soldierDamage, soldierRange } from './config';
+import {
+  DAZE_SLOW,
+  DAZE_TIME,
+  SOLDIERS,
+  arrowCount,
+  bladeStrikes,
+  slowOf,
+  soldierDamage,
+  soldierRange,
+  soldierRate,
+  soldierSplash,
+} from './config';
 import { enemyPos } from './waves';
 import type { Enemy, GameState, LevelDef, Projectile, Soldier, Vec } from './types';
 
 const ARROW_SPEED = 8;
 const ARROW_HIT_DIST = 0.3;
 const PIERCE_HALF_WIDTH = 0.5;
+/** 连斩追加斩的伤害比例 */
+const EXTRA_STRIKE_RATIO = 0.5;
 
 function dist(a: Vec, b: Vec): number {
   return Math.hypot(a.x - b.x, a.y - b.y);
 }
 
-export function damageEnemy(gs: GameState, level: LevelDef, e: Enemy, dmg: number): void {
+/** 结算一次伤害：默认吃护甲减免（至少 1 点），枪破甲可无视 */
+export function damageEnemy(
+  gs: GameState,
+  level: LevelDef,
+  e: Enemy,
+  dmg: number,
+  ignoreArmor = false,
+): void {
   if (e.hp <= 0) return;
-  e.hp -= dmg;
+  const armor = ignoreArmor ? 0 : (e.armor ?? 0);
+  const dealt = Math.max(1, dmg - armor);
+  e.hp -= dealt;
   const pos = enemyPos(level, e);
-  gs.events.push({ t: 'hit', x: pos.x, y: pos.y, damage: dmg, enemyId: e.id });
+  gs.events.push({ t: 'hit', x: pos.x, y: pos.y, damage: dealt, enemyId: e.id });
   if (e.hp <= 0) {
     gs.enemies = gs.enemies.filter((v) => v.id !== e.id);
     gs.food += e.bounty;
@@ -39,6 +61,14 @@ function findTarget(gs: GameState, level: LevelDef, s: Soldier, at: Vec, range: 
   return best;
 }
 
+/** 弓「连珠」：取射程内 progress 前 n 名 */
+function findArrowTargets(gs: GameState, level: LevelDef, at: Vec, range: number, n: number): Enemy[] {
+  return gs.enemies
+    .filter((e) => dist(at, enemyPos(level, e)) <= range)
+    .sort((a, b) => b.progress - a.progress)
+    .slice(0, n);
+}
+
 function attack(gs: GameState, level: LevelDef, s: Soldier, target: Enemy): void {
   const spec = SOLDIERS[s.kind];
   const at = s.cell!;
@@ -47,13 +77,16 @@ function attack(gs: GameState, level: LevelDef, s: Soldier, target: Enemy): void
   gs.events.push({ t: 'shoot', kind: s.kind, from: { ...at }, to: enemyPos(level, target), soldierId: s.id });
 
   if (s.kind === '弓') {
-    gs.projectiles.push({
-      id: gs.nextId++, x: at.x, y: at.y, targetId: target.id,
-      speed: ARROW_SPEED, damage: dmg,
-    });
+    for (const t of findArrowTargets(gs, level, at, range, arrowCount(s.level))) {
+      gs.projectiles.push({
+        id: gs.nextId++, x: at.x, y: at.y, targetId: t.id,
+        speed: ARROW_SPEED, damage: dmg,
+      });
+    }
     return;
   }
   if (spec.pierce) {
+    // 枪「破甲」：直线穿刺且无视护甲
     const tp = enemyPos(level, target);
     const len = dist(at, tp) || 1;
     const dir = { x: (tp.x - at.x) / len, y: (tp.y - at.y) / len };
@@ -63,27 +96,36 @@ function attack(gs: GameState, level: LevelDef, s: Soldier, target: Enemy): void
       const proj = rel.x * dir.x + rel.y * dir.y;
       if (proj < 0 || proj > range) continue;
       const perp = Math.abs(rel.x * dir.y - rel.y * dir.x);
-      if (perp <= PIERCE_HALF_WIDTH) damageEnemy(gs, level, e, dmg);
+      if (perp <= PIERCE_HALF_WIDTH) damageEnemy(gs, level, e, dmg, true);
     }
     return;
   }
   if (spec.splash) {
+    // 骑：溅射半径随等级成长；3 级起「践踏」命中减速
     const tp = enemyPos(level, target);
+    const radius = soldierSplash(s.level);
+    const daze = s.level >= 3;
     for (const e of [...gs.enemies]) {
-      if (dist(tp, enemyPos(level, e)) <= spec.splash) damageEnemy(gs, level, e, dmg);
+      if (dist(tp, enemyPos(level, e)) > radius) continue;
+      if (daze) e.dazeUntil = gs.time + DAZE_TIME;
+      damageEnemy(gs, level, e, dmg);
     }
     return;
   }
+  // 刀「连斩」：3 级起追加斩（50% 伤害）
   damageEnemy(gs, level, target, dmg);
+  for (let i = 1; i < bladeStrikes(s.level); i++) {
+    damageEnemy(gs, level, target, Math.max(1, Math.round(dmg * EXTRA_STRIKE_RATIO)));
+  }
 }
 
 export function tickCombat(gs: GameState, level: LevelDef, dt: number): void {
   if (gs.status !== 'playing') return;
 
-  // 1) 重算减速：取覆盖该敌人的最强忠光环
+  // 1) 重算减速：取覆盖该敌人的最强忠光环，与骑践踏取较大者
   for (const e of gs.enemies) {
     const pos = enemyPos(level, e);
-    let slow = 0;
+    let slow = gs.time < (e.dazeUntil ?? 0) ? DAZE_SLOW : 0;
     for (const s of gs.soldiers) {
       if (s.kind !== '忠' || !s.cell) continue;
       if (dist(s.cell, pos) <= soldierRange('忠', s.level)) {
@@ -104,7 +146,7 @@ export function tickCombat(gs: GameState, level: LevelDef, dt: number): void {
       s.cooldown = 0;
       continue;
     }
-    s.cooldown = 1 / spec.rate;
+    s.cooldown = 1 / soldierRate(s.kind, s.level);
     attack(gs, level, s, target);
   }
 
