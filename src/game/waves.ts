@@ -14,6 +14,7 @@ import {
   enemyHp,
   waveCoeff,
 } from './config';
+import { formationLeakDamage } from './formations';
 import { makeRewardChoices } from './rewards';
 import type { Enemy, GameState, LevelDef, SpawnEvent, Vec } from './types';
 
@@ -128,8 +129,9 @@ export function tickWave(gs: GameState, level: LevelDef, dt: number): void {
     const speed = enraged ? e.speed * BOSS_ENRAGE_SPEED : e.speed;
     e.progress += speed * (1 - e.slow) * dt;
     if (e.progress >= pathLength(level, e.pathIndex)) {
-      gs.baseHp = Math.max(0, gs.baseHp - e.damage);
-      gs.events.push({ t: 'leak', damage: e.damage });
+      const leakDamage = formationLeakDamage(gs, e.damage);
+      gs.baseHp = Math.max(0, gs.baseHp - leakDamage);
+      gs.events.push({ t: 'leak', damage: leakDamage });
       if (gs.baseHp <= 0) {
         gs.status = 'lost';
         gs.events.push({ t: 'lost' });

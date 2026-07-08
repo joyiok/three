@@ -1,4 +1,5 @@
 import { BENCH_SIZE, EARLY_CALL_MAX, ITEM_BAG_MAX } from '../game/config';
+import { activeFormations, formationHint } from '../game/formations';
 import { ITEM_DEFS } from '../game/items';
 import { wavePreview } from '../game/waves';
 import type { GameState, LevelDef } from '../game/types';
@@ -20,6 +21,7 @@ export class Dock {
   private costEl: HTMLElement;
   private waveBtn: HTMLButtonElement;
   private previewEl: HTMLElement;
+  private formationEl: HTMLElement;
 
   constructor(root: HTMLElement, handlers: DockHandlers) {
     root.className = 'dock';
@@ -30,6 +32,7 @@ export class Dock {
     root.innerHTML = `
       <div class="wave-preview" data-preview></div>
       <div class="item-bar" data-items></div>
+      <div class="formation-bar" data-formations></div>
       <div class="dock-row">
         <div class="camp"><div class="camp-roof"></div><div class="camp-body">营</div></div>
         <div class="slot slot-shovel" data-shovel>⛏</div>
@@ -46,6 +49,7 @@ export class Dock {
     this.waveBtn = root.querySelector('[data-wave]') as HTMLButtonElement;
     this.previewEl = root.querySelector('[data-preview]')!;
     this.itemsEl = root.querySelector('[data-items]')!;
+    this.formationEl = root.querySelector('[data-formations]')!;
     this.recruitBtn.addEventListener('click', handlers.onRecruit);
     this.waveBtn.addEventListener('click', handlers.onStartWave);
     // 事件委托：道具按钮内容会重建，监听器只绑一次
@@ -115,6 +119,14 @@ export class Dock {
         : '';
     if (this.previewEl.innerHTML !== previewHtml) this.previewEl.innerHTML = previewHtml;
     this.previewEl.classList.toggle('show', previewHtml !== '');
+
+    const formations = activeFormations(gs);
+    const formationHtml =
+      formations.length > 0
+        ? formations.map((f) => `<span class="formation-chip" title="${f.desc}">${f.name}<b>${f.desc}</b></span>`).join('')
+        : `<span class="formation-hint">${formationHint(gs)}</span>`;
+    if (this.formationEl.innerHTML !== formationHtml) this.formationEl.innerHTML = formationHtml;
+    this.formationEl.classList.toggle('formation-active', formations.length > 0);
 
     let waveHtml: string;
     if (gs.intermission) {
