@@ -80,6 +80,11 @@ export class VersusScreen {
     this.lastTs = performance.now();
     this.loop(this.lastTs);
     document.addEventListener('visibilitychange', this.onVisibility);
+
+    // 仅开发环境：暴露对局供无头浏览器验证脚本驱动
+    if (import.meta.env.DEV) {
+      (window as unknown as { __versus?: VersusGame }).__versus = this.game;
+    }
   }
 
   private initAudio = (): void => {

@@ -135,6 +135,11 @@ export class SingleGameScreen {
     this.lastTs = performance.now();
     this.loop(this.lastTs);
     document.addEventListener('visibilitychange', this.onVisibility);
+
+    // 仅开发环境：暴露引擎供无头浏览器验证脚本驱动
+    if (import.meta.env.DEV) {
+      (window as unknown as { __engine?: Engine }).__engine = this.engine;
+    }
   }
 
   private initAudio = (): void => {
