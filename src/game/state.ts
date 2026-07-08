@@ -34,6 +34,7 @@ export function createGame(level: LevelDef): GameState {
     items: [],
     rallyUntil: 0,
     slowAllUntil: 0,
+    rewardChoices: [],
   };
 }
 

@@ -1,5 +1,6 @@
 import { Engine } from '../game/engine';
 import { FIRE_RADIUS, ITEM_DEFS, useItem } from '../game/items';
+import { applyRewardChoice } from '../game/rewards';
 import { moveSoldier, recruit, sellSoldier, soldierAt } from '../game/state';
 import { callWave } from '../game/waves';
 import type { LevelDef, Loc, SoldierKind, Vec } from '../game/types';
@@ -56,6 +57,7 @@ export class SingleGameScreen {
   private bannerBoss: HTMLElement;
   private bannerCallout: HTMLElement;
   private bannerCombo: HTMLElement;
+  private rewardRoot: HTMLElement;
   private bossBannerTimer = 0;
   private waveBannerTimer = 0;
   private calloutTimer = 0;
@@ -83,6 +85,7 @@ export class SingleGameScreen {
         <div class="banner banner-callout" data-banner-callout></div>
         <div class="banner banner-combo" data-banner-combo></div>
       </div>
+      <div class="reward-overlay" data-rewards></div>
       <div class="dock" data-dock></div>`;
     this.canvas = root.querySelector('[data-canvas]') as HTMLCanvasElement;
     this.renderer = new Renderer(this.canvas, level);
@@ -90,6 +93,7 @@ export class SingleGameScreen {
     this.bannerBoss = root.querySelector('[data-banner-boss]') as HTMLElement;
     this.bannerCallout = root.querySelector('[data-banner-callout]') as HTMLElement;
     this.bannerCombo = root.querySelector('[data-banner-combo]') as HTMLElement;
+    this.rewardRoot = root.querySelector('[data-rewards]') as HTMLElement;
 
     const hudRoot = root.querySelector('[data-hud]') as HTMLElement;
     const dockRoot = root.querySelector('[data-dock]') as HTMLElement;
@@ -128,6 +132,7 @@ export class SingleGameScreen {
 
     this.bindCanvasDrag();
     this.bindShovel();
+    this.bindRewards();
 
     window.addEventListener('pointerdown', this.initAudio);
     window.addEventListener('resize', this.onResize);
@@ -217,6 +222,48 @@ export class SingleGameScreen {
       }
       ev.stopPropagation();
     });
+  }
+
+  private bindRewards(): void {
+    this.rewardRoot.addEventListener('click', (ev) => {
+      const card = (ev.target as Element).closest<HTMLElement>('[data-reward]');
+      if (!card) return;
+      const idx = Number(card.dataset.reward);
+      if (Number.isNaN(idx)) return;
+      if (applyRewardChoice(this.engine.gs, idx)) {
+        this.audio.ui('click');
+        this.fx.praise(2, 3, 4.5);
+        this.rewardRoot.classList.remove('show');
+        this.syncRewards();
+        this.syncHud();
+        this.dock.update(this.engine.gs, this.engine.level);
+      } else {
+        this.audio.ui('error');
+      }
+    });
+  }
+
+  private syncRewards(): void {
+    const choices = this.engine.gs.rewardChoices;
+    if (choices.length === 0) {
+      if (this.rewardRoot.innerHTML !== '') this.rewardRoot.innerHTML = '';
+      this.rewardRoot.classList.remove('show');
+      return;
+    }
+    const html = `
+      <div class="reward-panel">
+        <div class="reward-title">战后策令</div>
+        <div class="reward-sub">选择一项，整军再战</div>
+        <div class="reward-cards">
+          ${choices.map((c, i) => `
+            <button class="reward-card reward-${c.kind}" data-reward="${i}">
+              <b>${c.title}</b>
+              <span>${c.desc}</span>
+            </button>`).join('')}
+        </div>
+      </div>`;
+    if (this.rewardRoot.innerHTML !== html) this.rewardRoot.innerHTML = html;
+    this.rewardRoot.classList.add('show');
   }
 
   private startDrag(from: Loc, ev: PointerEvent): void {
@@ -448,6 +495,7 @@ export class SingleGameScreen {
     this.fx.update(dt);
     this.syncHud();
     this.dock.update(this.engine.gs, this.engine.level);
+    this.syncRewards();
     this.renderer.draw(this.engine.gs, this.fx, {
       ghost: this.ghost,
       selected: this.selected,

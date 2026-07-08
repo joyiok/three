@@ -13,6 +13,14 @@ export type ItemKind =
   | 'food' // 征粮：立得粮食
   | 'merge'; // 神合：随机一对同字同级士兵立即合成
 
+export type RewardKind = 'grain' | 'discount' | 'repair' | 'item' | 'veteran';
+
+export interface RewardChoice {
+  kind: RewardKind;
+  title: string;
+  desc: string;
+}
+
 export interface Vec {
   x: number;
   y: number;
@@ -138,4 +146,6 @@ export interface GameState {
   rallyUntil: number;
   /** 缓兵（全场敌军减速）截止时刻 */
   slowAllUntil: number;
+  /** 波末策令三选一；非空时暂停休整倒计时，等待玩家选择 */
+  rewardChoices: RewardChoice[];
 }

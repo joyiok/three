@@ -14,6 +14,7 @@ import {
   enemyHp,
   waveCoeff,
 } from './config';
+import { makeRewardChoices } from './rewards';
 import type { Enemy, GameState, LevelDef, SpawnEvent, Vec } from './types';
 
 export function pathLength(level: LevelDef, pathIndex: number): number {
@@ -103,6 +104,7 @@ export function tickWave(gs: GameState, level: LevelDef, dt: number): void {
 
   // 波间休整倒计时
   if (gs.intermission) {
+    if (gs.rewardChoices.length > 0) return;
     gs.waveTimer -= dt;
     if (gs.waveTimer <= 0) startWave(gs, level);
     return;
@@ -164,6 +166,7 @@ export function tickWave(gs: GameState, level: LevelDef, dt: number): void {
       }
       // 征兵价随时间回落
       gs.recruitCost = Math.max(RECRUIT_BASE, gs.recruitCost - RECRUIT_DECAY);
+      gs.rewardChoices = makeRewardChoices(gs);
       gs.intermission = true;
       gs.waveTimer = WAVE_AUTO_DELAY;
     }
