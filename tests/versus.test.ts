@@ -139,6 +139,87 @@ describe('versus 道具', () => {
     expect(g.p2.food).toBe(20);
     expect(g.p1.food).toBe(22); // 20 - 8 花费 + 10 偷 = 22
   });
+
+  it('遣袭派出 8 个斗', () => {
+    const g = createVersusGame({ seed: 1 });
+    g.p1.food = 100;
+    gainItem(g.p1, 'sendSwarm');
+    expect(useItem(g, 'p1', 'sendSwarm')).toBe(true);
+    expect(g.p2.pendingWaves[0].kind).toBe('斗');
+    expect(g.p2.pendingWaves[0].count).toBe(8);
+  });
+
+  it('断粮抬高对方征兵价', () => {
+    const g = createVersusGame({ seed: 1 });
+    g.p1.food = 100;
+    gainItem(g.p1, 'starve');
+    const before = g.p2.recruitCost;
+    expect(useItem(g, 'p1', 'starve')).toBe(true);
+    expect(g.p2.recruitCost).toBe(before + 4);
+  });
+
+  it('火计灼烧己方来袭敌人，空场不消耗', () => {
+    const g = createVersusGame({ seed: 1 });
+    g.p1.food = 100;
+    gainItem(g.p1, 'bomb');
+    expect(useItem(g, 'p1', 'bomb')).toBe(false); // 无敌人
+    expect(g.p1.items).toContain('bomb');
+    g.p1.enemies.push({
+      id: g.p1.nextId++, kind: '兵', word: '兵', hp: 500, maxHp: 500,
+      speed: 0, slow: 0, progress: 1, bounty: 6, damage: 1, armor: 99, regen: 0, dazeUntil: 0,
+    });
+    const foodBefore = g.p1.food;
+    expect(useItem(g, 'p1', 'bomb')).toBe(true);
+    expect(g.p1.enemies[0].hp).toBe(500 - 60); // 无视护甲
+    expect(g.p1.food).toBe(foodBefore - ITEMS.bomb.cost);
+    expect(g.p1.items).not.toContain('bomb');
+  });
+
+  it('鼓舞设置己方攻速加成时限', () => {
+    const g = createVersusGame({ seed: 1 });
+    g.p1.food = 100;
+    gainItem(g.p1, 'rally');
+    expect(useItem(g, 'p1', 'rally')).toBe(true);
+    expect(g.p1.rallyUntil).toBeGreaterThan(g.time);
+  });
+
+  it('修营满血时不消耗', () => {
+    const g = createVersusGame({ seed: 1 });
+    g.p1.food = 100;
+    gainItem(g.p1, 'heal');
+    expect(useItem(g, 'p1', 'heal')).toBe(false);
+    expect(g.p1.items).toContain('heal');
+    expect(g.p1.food).toBe(100);
+  });
+
+  it('拓草缺目标不消耗', () => {
+    const g = createVersusGame({ seed: 1 });
+    g.p1.food = 100;
+    gainItem(g.p1, 'terraGrass');
+    expect(useItem(g, 'p1', 'terraGrass')).toBe(false);
+    expect(g.p1.items).toContain('terraGrass');
+    expect(g.p1.food).toBe(100);
+  });
+
+  it('神合可合背包对子', () => {
+    const g = createVersusGame({ seed: 1 });
+    g.p1.food = 100;
+    gainItem(g.p1, 'instantMerge');
+    g.p1.bench[0] = { id: g.p1.nextId++, kind: '刀', level: 1, cell: null, cooldown: 0 };
+    g.p1.bench[1] = { id: g.p1.nextId++, kind: '刀', level: 1, cell: null, cooldown: 0 };
+    expect(useItem(g, 'p1', 'instantMerge')).toBe(true);
+    expect(g.p1.bench[0]).toBeNull();
+    expect(g.p1.bench[1]?.level).toBe(2);
+  });
+
+  it('神合无对子不消耗', () => {
+    const g = createVersusGame({ seed: 1 });
+    g.p1.food = 100;
+    gainItem(g.p1, 'instantMerge');
+    expect(useItem(g, 'p1', 'instantMerge')).toBe(false);
+    expect(g.p1.items).toContain('instantMerge');
+    expect(g.p1.food).toBe(100);
+  });
 });
 
 describe('versus 引擎', () => {

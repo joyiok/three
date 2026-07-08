@@ -129,17 +129,23 @@ export class SingleGameScreen {
     this.bindCanvasDrag();
     this.bindShovel();
 
-    const initAudio = () => {
-      this.audio.init();
-      this.audio.startBgm();
-      window.removeEventListener('pointerdown', initAudio);
-    };
-    window.addEventListener('pointerdown', initAudio);
+    window.addEventListener('pointerdown', this.initAudio);
+    window.addEventListener('resize', this.onResize);
 
     this.lastTs = performance.now();
     this.loop(this.lastTs);
     document.addEventListener('visibilitychange', this.onVisibility);
   }
+
+  private initAudio = (): void => {
+    this.audio.init();
+    this.audio.startBgm();
+    window.removeEventListener('pointerdown', this.initAudio);
+  };
+
+  private onResize = (): void => {
+    this.renderer.resize();
+  };
 
   /** 点击锦囊道具：需瞄准的进入瞄准态，其余立即释放 */
   private onItemTap(index: number): void {
@@ -456,6 +462,8 @@ export class SingleGameScreen {
   destroy(): void {
     cancelAnimationFrame(this.raf);
     document.removeEventListener('visibilitychange', this.onVisibility);
+    window.removeEventListener('pointerdown', this.initAudio);
+    window.removeEventListener('resize', this.onResize);
     this.audio.stopBgm();
   }
 }

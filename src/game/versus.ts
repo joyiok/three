@@ -29,14 +29,18 @@ export type GameStatus = 'matching' | 'playing' | 'won' | 'lost' | 'draw';
 
 /** 道具种类 */
 export type ItemKind =
+  | 'sendSwarm' // 攻：向对方发一大群斗
   | 'sendGoon' // 攻：向对方发 1 波小怪(贼×5)
   | 'sendSoldier' // 攻：向对方发 1 波甲兵(兵×3)
   | 'sendBoss' // 攻：向对方发 1 个将
   | 'heal' // 守：营寨 +3 血
   | 'foodBoost' // 守：+15 粮
   | 'instantMerge' // 守：随机一对同字同级兵瞬合
+  | 'bomb' // 守：火计，灼烧来袭我方半场的所有敌人
+  | 'rally' // 守：鼓舞，己方全军攻速提升 6 秒
   | 'freeze' // 控：冻结对方所有士兵冷却 3 秒
   | 'stealFood' // 控：偷对方 10 粮
+  | 'starve' // 控：断粮，对方征兵价 +4
   | 'fog' // 控：对方 4 秒看不到我方地图（迷雾）
   | 'terraGrass' // 图：把我方一格变草地（可放兵）
   | 'terraClear'; // 图：移除我方一格岩石(变草地)
@@ -49,19 +53,30 @@ export interface ItemDef {
   desc: string;
 }
 
+export const BOMB_DAMAGE = 60;
+export const RALLY_TIME_VS = 6;
+export const RALLY_MULT_VS = 1.5;
+export const STARVE_STEP = 4;
+
 export const ITEMS: Record<ItemKind, ItemDef> = {
+  sendSwarm: { kind: 'sendSwarm', name: '遣袭', cat: 'attack', cost: 8, desc: '向对方派出 8 个斗' },
   sendGoon: { kind: 'sendGoon', name: '遣贼', cat: 'attack', cost: 12, desc: '向对方派出 5 个贼' },
   sendSoldier: { kind: 'sendSoldier', name: '遣兵', cat: 'attack', cost: 18, desc: '向对方派出 3 个甲兵' },
   sendBoss: { kind: 'sendBoss', name: '遣将', cat: 'attack', cost: 30, desc: '向对方派出 1 个精英将' },
   heal: { kind: 'heal', name: '修营', cat: 'defend', cost: 14, desc: '营寨恢复 3 点血量' },
-  foodBoost: { kind: 'foodBoost', name: '征粮', cat: 'defend', cost: 0, desc: '获得 15 粮食（每场限 2 次）' },
+  foodBoost: { kind: 'foodBoost', name: '征粮', cat: 'defend', cost: 0, desc: '获得 15 粮食' },
   instantMerge: { kind: 'instantMerge', name: '神合', cat: 'defend', cost: 16, desc: '随机一对同字同级兵瞬间合成升级' },
+  bomb: { kind: 'bomb', name: '火计', cat: 'defend', cost: 15, desc: `烈焰灼烧来袭我方的所有敌人（${BOMB_DAMAGE} 伤害，无视护甲）` },
+  rally: { kind: 'rally', name: '鼓舞', cat: 'defend', cost: 12, desc: `己方全军攻速 +50%，持续 ${RALLY_TIME_VS} 秒` },
   freeze: { kind: 'freeze', name: '冻令', cat: 'control', cost: 20, desc: '冻结对方所有士兵冷却 3 秒' },
   stealFood: { kind: 'stealFood', name: '劫粮', cat: 'control', cost: 8, desc: '偷取对方 10 粮食' },
+  starve: { kind: 'starve', name: '断粮', cat: 'control', cost: 10, desc: `对方征兵价 +${STARVE_STEP}` },
   fog: { kind: 'fog', name: '迷雾', cat: 'control', cost: 22, desc: '对方 4 秒无法观察我方布阵' },
   terraGrass: { kind: 'terraGrass', name: '拓草', cat: 'terra', cost: 10, desc: '把我方一格路面/岩石变为草地' },
   terraClear: { kind: 'terraClear', name: '清障', cat: 'terra', cost: 6, desc: '移除我方一格岩石（变草地）' },
 };
+
+export const ITEM_KINDS_VS = Object.keys(ITEMS) as ItemKind[];
 
 export interface Soldier {
   id: number;
@@ -121,6 +136,7 @@ export interface PlayerState {
   items: ItemKind[]; // 持有道具（最多4）
   fogUntil: number; // 被迷雾遮蔽的截止时间(秒)；0=无
   freezeUntil: number; // 士兵冷却被冻结的截止时间
+  rallyUntil: number; // 鼓舞（攻速加成）截止时间
   name: string;
   isAi: boolean;
   nextId: number;
@@ -177,6 +193,7 @@ export function createVersusGame(
     items: [],
     fogUntil: 0,
     freezeUntil: 0,
+    rallyUntil: 0,
     name,
     isAi,
     nextId: 1,
@@ -311,12 +328,20 @@ export function gainItem(p: PlayerState, kind: ItemKind): boolean {
 /** 战斗中随机掉落道具 */
 export function maybeDropItem(p: PlayerState, rand: () => number = Math.random): void {
   if (rand() < 0.08 && p.items.length < 4) {
-    const pool: ItemKind[] = ['sendGoon', 'sendSoldier', 'heal', 'foodBoost', 'freeze', 'stealFood', 'fog', 'terraGrass', 'terraClear', 'instantMerge'];
-    gainItem(p, pool[Math.floor(rand() * pool.length)]);
+    gainItem(p, ITEM_KINDS_VS[Math.floor(rand() * ITEM_KINDS_VS.length)]);
   }
 }
 
-/** 使用道具。targetSide 为对方（攻/控类）或己方（守/图类） */
+/** 把一格改成草地 */
+function setGrass(game: VersusGame, cell: Vec): void {
+  game.map.grid[cell.y] =
+    game.map.grid[cell.y].slice(0, cell.x) + '.' + game.map.grid[cell.y].slice(cell.x + 1);
+}
+
+/**
+ * 使用道具。目标为对方（攻/控类）或己方（守/图类）。
+ * 无效使用（缺目标、满血修营、空场火计等）返回 false，不消耗道具与粮食。
+ */
 export function useItem(game: VersusGame, user: Side, item: ItemKind, targetCell?: Vec): boolean {
   const p = game[user];
   const foe: Side = user === 'p1' ? 'p2' : 'p1';
@@ -324,12 +349,13 @@ export function useItem(game: VersusGame, user: Side, item: ItemKind, targetCell
   const def = ITEMS[item];
   if (!p.items.includes(item)) return false;
   if (p.food < def.cost) return false;
-  p.food -= def.cost;
-  // 精确移除一个该道具
-  const idx = p.items.indexOf(item);
-  if (idx >= 0) p.items.splice(idx, 1);
 
+  // 先执行效果（可拒绝），成功才扣道具与粮食
+  let ok = true;
   switch (item) {
+    case 'sendSwarm':
+      foeP.pendingWaves.push({ kind: '斗', count: 8, interval: 0.6, delay: 0, elapsed: 0, spawned: 0 });
+      break;
     case 'sendGoon':
       foeP.pendingWaves.push({ kind: '贼', count: 5, interval: 0.8, delay: 0, elapsed: 0, spawned: 0 });
       break;
@@ -340,55 +366,108 @@ export function useItem(game: VersusGame, user: Side, item: ItemKind, targetCell
       foeP.pendingWaves.push({ kind: '将', count: 1, interval: 1, delay: 0, elapsed: 0, spawned: 0 });
       break;
     case 'heal':
-      p.hp = Math.min(p.maxHp, p.hp + 3);
+      if (p.hp >= p.maxHp) ok = false;
+      else p.hp = Math.min(p.maxHp, p.hp + 3);
       break;
     case 'foodBoost':
       p.food += 15;
       break;
     case 'instantMerge':
-      tryInstantMerge(p);
+      ok = tryInstantMerge(p);
+      break;
+    case 'bomb': {
+      if (p.enemies.length === 0) {
+        ok = false;
+        break;
+      }
+      const path = pathFor(game, user);
+      for (const e of [...p.enemies]) damageEnemy(game, user, path, e, BOMB_DAMAGE, true);
+      break;
+    }
+    case 'rally':
+      p.rallyUntil = game.time + RALLY_TIME_VS;
       break;
     case 'freeze':
       foeP.freezeUntil = game.time + 3;
       break;
     case 'stealFood': {
+      if (foeP.food <= 0) {
+        ok = false;
+        break;
+      }
       const stolen = Math.min(10, foeP.food);
       foeP.food -= stolen;
       p.food += stolen;
       break;
     }
+    case 'starve':
+      foeP.recruitCost = Math.min(RECRUIT_MAX, foeP.recruitCost + STARVE_STEP);
+      break;
     case 'fog':
       foeP.fogUntil = game.time + 4;
       break;
     case 'terraGrass':
-      if (targetCell && kindOf(game.map, targetCell.x, targetCell.y) !== 'grass') {
-        game.map.grid[targetCell.y] = game.map.grid[targetCell.y].slice(0, targetCell.x) + '.' + game.map.grid[targetCell.y].slice(targetCell.x + 1);
-      }
+      if (targetCell && kindOf(game.map, targetCell.x, targetCell.y) !== 'grass') setGrass(game, targetCell);
+      else ok = false;
       break;
     case 'terraClear':
-      if (targetCell && kindOf(game.map, targetCell.x, targetCell.y) === 'rock') {
-        game.map.grid[targetCell.y] = game.map.grid[targetCell.y].slice(0, targetCell.x) + '.' + game.map.grid[targetCell.y].slice(targetCell.x + 1);
-      }
+      if (targetCell && kindOf(game.map, targetCell.x, targetCell.y) === 'rock') setGrass(game, targetCell);
+      else ok = false;
       break;
   }
+  if (!ok) return false;
+
+  p.food -= def.cost;
+  const idx = p.items.indexOf(item);
+  if (idx >= 0) p.items.splice(idx, 1);
   game.events.push({ t: 'itemUsed', side: user, item });
   return true;
 }
 
-function tryInstantMerge(p: PlayerState): void {
-  const cells = p.soldiers.filter((s) => s.cell);
-  for (let i = 0; i < cells.length; i++) {
-    for (let j = i + 1; j < cells.length; j++) {
-      const a = cells[i];
-      const b = cells[j];
-      if (a.kind === b.kind && a.level === b.level && a.cell && b.cell) {
-        // 合 a 入 b
+/** 神合：场上与背包一并检索同字同级对，返回是否成功 */
+function tryInstantMerge(p: PlayerState): boolean {
+  const fielded = p.soldiers.filter((s) => s.cell);
+  for (let i = 0; i < fielded.length; i++) {
+    for (let j = i + 1; j < fielded.length; j++) {
+      const a = fielded[i];
+      const b = fielded[j];
+      if (a.kind === b.kind && a.level === b.level) {
         b.level += 1;
+        b.cooldown = 0;
         p.soldiers = p.soldiers.filter((s) => s.id !== a.id);
-        return;
+        return true;
       }
     }
   }
+  // 背包 × 场上
+  for (let i = 0; i < p.bench.length; i++) {
+    const bs = p.bench[i];
+    if (!bs) continue;
+    for (const f of fielded) {
+      if (bs.kind === f.kind && bs.level === f.level) {
+        f.level += 1;
+        f.cooldown = 0;
+        p.bench[i] = null;
+        return true;
+      }
+    }
+  }
+  // 背包 × 背包
+  for (let i = 0; i < p.bench.length; i++) {
+    const a = p.bench[i];
+    if (!a) continue;
+    for (let j = i + 1; j < p.bench.length; j++) {
+      const b = p.bench[j];
+      if (!b) continue;
+      if (a.kind === b.kind && a.level === b.level) {
+        b.level += 1;
+        b.cooldown = 0;
+        p.bench[i] = null;
+        return true;
+      }
+    }
+  }
+  return false;
 }
 
 // ===== 出怪 =====
@@ -531,7 +610,8 @@ function tickPlayerCombat(game: VersusGame, side: Side, dt: number): void {
     }
     e.slow = slow;
   }
-  // 士兵攻击
+  // 士兵攻击（鼓舞期间攻速加成）
+  const rateMult = game.time < p.rallyUntil ? RALLY_MULT_VS : 1;
   for (const s of p.soldiers) {
     const spec = SOLDIERS[s.kind];
     if (spec.rate <= 0 || !s.cell) continue;
@@ -542,7 +622,7 @@ function tickPlayerCombat(game: VersusGame, side: Side, dt: number): void {
       s.cooldown = 0;
       continue;
     }
-    s.cooldown = 1 / soldierRate(s.kind, s.level);
+    s.cooldown = 1 / (soldierRate(s.kind, s.level) * rateMult);
     attack(game, side, path, s, target);
   }
   // 弹道

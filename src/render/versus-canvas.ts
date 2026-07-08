@@ -375,8 +375,6 @@ export class VersusRenderer {
   }
 
   private drawFog(side: Side): void {
-    const p = this.game[side];
-    if (p.fogUntil <= 0 || p.fogUntil <= this.time) return;
     const c = this.ctx;
     c.save();
     // 遮住该侧半区
@@ -450,8 +448,9 @@ export class VersusRenderer {
 
     // 迷雾遮罩（己方被遮看不到对方半场——这里遮"对方半场"从己方视角）
     // 简化：p1 被迷雾时遮 p2 半场，p2 被迷雾时遮 p1 半场
-    if (this.game.p1.fogUntil > this.time) this.drawFog('p2'); // p1 看不清 p2
-    if (this.game.p2.fogUntil > this.time) this.drawFog('p1');
+    // 注意用对局时钟 game.time 判断（渲染时钟在暂停时仍走，会导致迷雾提前消散）
+    if (this.game.p1.fogUntil > this.game.time) this.drawFog('p2'); // p1 看不清 p2
+    if (this.game.p2.fogUntil > this.game.time) this.drawFog('p1');
 
     // 拖动幽灵
     if (opts.ghost) {
