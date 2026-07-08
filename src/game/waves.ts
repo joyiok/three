@@ -14,6 +14,8 @@ import {
   enemyHp,
   waveCoeff,
 } from './config';
+import { formationLeakDamage } from './formations';
+import { makeRewardChoices } from './rewards';
 import type { Enemy, GameState, LevelDef, SpawnEvent, Vec } from './types';
 
 export function pathLength(level: LevelDef, pathIndex: number): number {
@@ -103,6 +105,7 @@ export function tickWave(gs: GameState, level: LevelDef, dt: number): void {
 
   // 波间休整倒计时
   if (gs.intermission) {
+    if (gs.rewardChoices.length > 0) return;
     gs.waveTimer -= dt;
     if (gs.waveTimer <= 0) startWave(gs, level);
     return;
@@ -126,8 +129,9 @@ export function tickWave(gs: GameState, level: LevelDef, dt: number): void {
     const speed = enraged ? e.speed * BOSS_ENRAGE_SPEED : e.speed;
     e.progress += speed * (1 - e.slow) * dt;
     if (e.progress >= pathLength(level, e.pathIndex)) {
-      gs.baseHp = Math.max(0, gs.baseHp - e.damage);
-      gs.events.push({ t: 'leak', damage: e.damage });
+      const leakDamage = formationLeakDamage(gs, e.damage);
+      gs.baseHp = Math.max(0, gs.baseHp - leakDamage);
+      gs.events.push({ t: 'leak', damage: leakDamage });
       if (gs.baseHp <= 0) {
         gs.status = 'lost';
         gs.events.push({ t: 'lost' });
@@ -164,6 +168,7 @@ export function tickWave(gs: GameState, level: LevelDef, dt: number): void {
       }
       // 征兵价随时间回落
       gs.recruitCost = Math.max(RECRUIT_BASE, gs.recruitCost - RECRUIT_DECAY);
+      gs.rewardChoices = makeRewardChoices(gs);
       gs.intermission = true;
       gs.waveTimer = WAVE_AUTO_DELAY;
     }

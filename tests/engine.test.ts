@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { Engine } from '../src/game/engine';
 import { LEVELS, cellKind } from '../src/game/levels';
 import { GRID_H, GRID_W } from '../src/game/config';
+import { applyRewardChoice } from '../src/game/rewards';
 
 const level = LEVELS[0];
 
@@ -18,6 +19,7 @@ function deployEverywhere(engine: Engine, kind: '刀' | '弓', lv: number) {
 function runUntilEnd(engine: Engine, maxSeconds: number): number {
   let t = 0;
   while (engine.gs.status === 'playing' && t < maxSeconds) {
+    if (engine.gs.rewardChoices.length > 0) applyRewardChoice(engine.gs, 0, () => 0);
     engine.tick(0.05);
     t += 0.05;
   }

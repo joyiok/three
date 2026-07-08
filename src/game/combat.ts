@@ -14,6 +14,7 @@ import {
   soldierRate,
   soldierSplash,
 } from './config';
+import { formationDamageMultiplier } from './formations';
 import { enemyPos } from './waves';
 import type { Enemy, GameState, LevelDef, Projectile, Soldier, Vec } from './types';
 
@@ -84,7 +85,7 @@ function findArrowTargets(gs: GameState, level: LevelDef, at: Vec, range: number
 function attack(gs: GameState, level: LevelDef, s: Soldier, target: Enemy): void {
   const spec = SOLDIERS[s.kind];
   const at = s.cell!;
-  const dmg = soldierDamage(s.kind, s.level);
+  const dmg = Math.round(soldierDamage(s.kind, s.level) * formationDamageMultiplier(gs, s.kind));
   const range = soldierRange(s.kind, s.level);
   gs.events.push({ t: 'shoot', kind: s.kind, from: { ...at }, to: enemyPos(level, target), soldierId: s.id });
 

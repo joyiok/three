@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { BASE_HP, WAVE_AUTO_DELAY, WAVE_CLEAR_BONUS } from '../src/game/config';
 import { LEVELS } from '../src/game/levels';
+import { applyRewardChoice } from '../src/game/rewards';
 import { createGame } from '../src/game/state';
 import { enemyPos, pathLength, startWave, tickWave } from '../src/game/waves';
 
@@ -66,7 +67,7 @@ describe('waves', () => {
     expect(gs.events.some((e) => e.t === 'lost')).toBe(true);
   });
 
-  it('非末波清空发粮（含利息）并倒计时自动开波', () => {
+  it('非末波清空发粮（含利息）并生成策令，选择后倒计时自动开波', () => {
     const gs = createGame(level);
     startWave(gs, level);
     gs.spawnQueue = [];
@@ -75,7 +76,11 @@ describe('waves', () => {
     tickWave(gs, level, 0.1);
     const interest = Math.floor((before + WAVE_CLEAR_BONUS) / 10);
     expect(gs.food).toBe(before + WAVE_CLEAR_BONUS + interest);
+    expect(gs.rewardChoices.length).toBeGreaterThan(0);
     expect(gs.waveTimer).toBeCloseTo(WAVE_AUTO_DELAY - 0, 5);
+    tickWave(gs, level, WAVE_AUTO_DELAY + 0.1);
+    expect(gs.waveIndex).toBe(0); // 未选策令前暂停自动开波
+    expect(applyRewardChoice(gs, 0, () => 0)).toBe(true);
     tickWave(gs, level, WAVE_AUTO_DELAY + 0.1);
     expect(gs.waveIndex).toBe(1);
   });
