@@ -1,9 +1,13 @@
 import {
   DAZE_SLOW,
   DAZE_TIME,
+  ITEM_BAG_MAX,
+  RALLY_RATE_MULT,
+  SLOW_ALL_AMOUNT,
   SOLDIERS,
   arrowCount,
   bladeStrikes,
+  rollItemDrop,
   slowOf,
   soldierDamage,
   soldierRange,
@@ -41,6 +45,14 @@ export function damageEnemy(
     gs.enemies = gs.enemies.filter((v) => v.id !== e.id);
     gs.food += e.bounty;
     gs.events.push({ t: 'kill', x: pos.x, y: pos.y, bounty: e.bounty, enemyId: e.id });
+    // 击杀掉落锦囊道具
+    if (gs.items.length < ITEM_BAG_MAX) {
+      const item = rollItemDrop(e.kind);
+      if (item) {
+        gs.items.push(item);
+        gs.events.push({ t: 'itemGain', item, x: pos.x, y: pos.y });
+      }
+    }
   }
 }
 
@@ -122,10 +134,11 @@ function attack(gs: GameState, level: LevelDef, s: Soldier, target: Enemy): void
 export function tickCombat(gs: GameState, level: LevelDef, dt: number): void {
   if (gs.status !== 'playing') return;
 
-  // 1) 重算减速：取覆盖该敌人的最强忠光环，与骑践踏取较大者
+  // 1) 重算减速：取覆盖该敌人的最强忠光环，与骑践踏/道具「缓兵」取较大者
+  const globalSlow = gs.time < gs.slowAllUntil ? SLOW_ALL_AMOUNT : 0;
   for (const e of gs.enemies) {
     const pos = enemyPos(level, e);
-    let slow = gs.time < (e.dazeUntil ?? 0) ? DAZE_SLOW : 0;
+    let slow = Math.max(globalSlow, gs.time < (e.dazeUntil ?? 0) ? DAZE_SLOW : 0);
     for (const s of gs.soldiers) {
       if (s.kind !== '忠' || !s.cell) continue;
       if (dist(s.cell, pos) <= soldierRange('忠', s.level)) {
@@ -135,7 +148,8 @@ export function tickCombat(gs: GameState, level: LevelDef, dt: number): void {
     e.slow = slow;
   }
 
-  // 2) 士兵攻击
+  // 2) 士兵攻击（道具「鼓舞」期间全军攻速加成）
+  const rateMult = gs.time < gs.rallyUntil ? RALLY_RATE_MULT : 1;
   for (const s of gs.soldiers) {
     const spec = SOLDIERS[s.kind];
     if (spec.rate <= 0 || !s.cell) continue;
@@ -146,7 +160,7 @@ export function tickCombat(gs: GameState, level: LevelDef, dt: number): void {
       s.cooldown = 0;
       continue;
     }
-    s.cooldown = 1 / soldierRate(s.kind, s.level);
+    s.cooldown = 1 / (soldierRate(s.kind, s.level) * rateMult);
     attack(gs, level, s, target);
   }
 

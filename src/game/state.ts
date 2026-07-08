@@ -31,6 +31,9 @@ export function createGame(level: LevelDef): GameState {
     events: [],
     nextId: 1,
     time: 0,
+    items: [],
+    rallyUntil: 0,
+    slowAllUntil: 0,
   };
 }
 

@@ -178,6 +178,31 @@ export class GameAudio {
       case 'leak':
         this.tone(60, 0.3, 'sine', 0.35, 1.5);
         break;
+      case 'itemGain':
+        this.tone(1320, 0.07, 'triangle', 0.16, 3);
+        setTimeout(() => this.tone(1760, 0.09, 'triangle', 0.14, 3), 70);
+        break;
+      case 'itemUse':
+        switch (e.item) {
+          case 'fire':
+            this.noise(0.45, 0.28, 500, 'lowpass');
+            this.sweep(240, 60, 0.4, 'sawtooth', 0.2);
+            break;
+          case 'arrowRain':
+            [0, 90, 180, 270].forEach((ms) => setTimeout(() => this.sweep(1800, 900, 0.12, 'triangle', 0.14), ms));
+            break;
+          case 'rockfall':
+            this.tone(65, 0.35, 'sine', 0.4, 1.5);
+            this.noise(0.25, 0.2, 300, 'lowpass');
+            break;
+          case 'rally':
+            [0, 140, 280].forEach((ms) => setTimeout(() => this.tone(110, 0.16, 'square', 0.22, 2), ms));
+            break;
+          default:
+            this.tone(990, 0.1, 'triangle', 0.18, 2.5);
+            break;
+        }
+        break;
       case 'waveStart':
         this.sweep(220, 330, 0.4, 'sawtooth', 0.2);
         break;

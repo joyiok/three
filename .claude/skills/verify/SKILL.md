@@ -24,7 +24,10 @@ google-chrome --headless=new --remote-debugging-port=9666 --no-sandbox \
 - 菜单按钮文字带空格（"战 役"），用类选择器：`.menu-campaign`、`.menu-versus`；
   选关卡片是 `.lv-card`（div 不是 button）。
 - 对局内 DOM 锚点：`[data-food] [data-hp] [data-cost] [data-recruit] .wave-btn
-  .wave-preview [data-slot="N"] [data-canvas]`。
+  .wave-preview [data-slot="N"] [data-canvas]`；锦囊道具栏 `.item-bar .item-btn
+  .item-empty`（瞄准态按钮带 `.item-armed`）；对战道具 `[data-dock-p1] .vs-item`。
+- dev server 下暴露调试句柄：战役 `window.__engine`（Engine，含 `.gs`），对战
+  `window.__versus`（VersusGame）。可直接塞士兵/道具/粮食构造场景。
 - 画布格子：宽度/7 为格宽，格 (x,y) 中心 = canvasRect + (x+0.5, y+0.5)×cell。
 - 部署：从 `[data-slot="0"]` 中心拖到画布草地格中心；成功后槽位 textContent 变空。
 

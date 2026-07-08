@@ -74,17 +74,28 @@ export class VersusScreen {
     this.bindDock('p1');
     if (this.localTwoPlayer) this.bindDock('p2');
 
-    const initAudio = () => {
-      this.audio.init();
-      this.audio.startBgm();
-      window.removeEventListener('pointerdown', initAudio);
-    };
-    window.addEventListener('pointerdown', initAudio);
+    window.addEventListener('pointerdown', this.initAudio);
+    window.addEventListener('resize', this.onResize);
 
     this.lastTs = performance.now();
     this.loop(this.lastTs);
     document.addEventListener('visibilitychange', this.onVisibility);
+
+    // 仅开发环境：暴露对局供无头浏览器验证脚本驱动
+    if (import.meta.env.DEV) {
+      (window as unknown as { __versus?: VersusGame }).__versus = this.game;
+    }
   }
+
+  private initAudio = (): void => {
+    this.audio.init();
+    this.audio.startBgm();
+    window.removeEventListener('pointerdown', this.initAudio);
+  };
+
+  private onResize = (): void => {
+    this.renderer.resize();
+  };
 
   private buildDom(): void {
     const p2Label = this.localTwoPlayer ? '玩家二' : this.game.p2.name;
@@ -158,6 +169,22 @@ export class VersusScreen {
       }
       ev.stopPropagation();
     });
+    // 道具栏：事件委托，只绑一次（按钮内容会随状态重建）
+    const itemsEl = dockRoot.querySelector(`[data-items="${side}"]`) as HTMLElement;
+    itemsEl.addEventListener('click', (ev) => {
+      const btn = (ev.target as Element).closest<HTMLElement>('[data-item]');
+      if (!btn || !btn.dataset.item) return;
+      const idx = Number(btn.dataset.item.split('-')[1]);
+      const kind = this.game[side].items[idx];
+      if (!kind) return;
+      const def = ITEMS[kind];
+      if (this.game[side].food < def.cost) return;
+      const target = this.selected && this.selectedSide === side ? this.selected : undefined;
+      if (!useItem(this.game, side, kind, target)) {
+        this.audio.ui('error');
+      }
+      this.syncDock(side);
+    });
   }
 
   private bindCanvasDrag(): void {
@@ -180,6 +207,8 @@ export class VersusScreen {
 
   private selected: Vec | null = null;
   private selectedSide: Side = 'p1';
+  private lastItemsHtml: Record<Side, string> = { p1: '', p2: '' };
+  private bannerTimer = 0;
 
   private startDrag(side: Side, from: VsDragState['from'], ev: PointerEvent): void {
     const p = this.game[side];
@@ -272,33 +301,28 @@ export class VersusScreen {
     if (costEl) costEl.textContent = String(p.recruitCost);
     const recBtn = root.querySelector(`[data-recruit="${side}"]`) as HTMLButtonElement;
     if (recBtn) recBtn.disabled = p.food < p.recruitCost || !p.bench.some((s) => s === null);
-    // 道具栏
+    // 道具栏：内容变化才重建 DOM（每帧重建会吞掉点击），事件走 bindDock 的委托
     const itemsEl = root.querySelector(`[data-items="${side}"]`) as HTMLElement;
     if (itemsEl) {
-      itemsEl.innerHTML = p.items
+      const html = p.items
         .map((k, i) => {
           const d = ITEMS[k];
           const disabled = p.food < d.cost ? ' vs-item-disabled' : '';
           return `<button class="vs-item vs-item-${d.cat}${disabled}" data-item="${side}-${i}" title="${d.desc}">${d.name}</button>`;
         })
         .join('');
-      itemsEl.querySelectorAll<HTMLElement>('[data-item]').forEach((btn) => {
-        btn.addEventListener('click', () => {
-          if (!btn.dataset.item) return;
-          const [sideStr, idxStr] = btn.dataset.item.split('-');
-          const s = sideStr as Side;
-          const idx = Number(idxStr);
-          const kind = this.game[s].items[idx];
-          if (kind) {
-            const def = ITEMS[kind];
-            if (this.game[s].food >= def.cost) {
-              useItem(this.game, s, kind, this.selected && this.selectedSide === s ? this.selected : undefined);
-              this.syncDock(s);
-            }
-          }
-        });
-      });
+      if (this.lastItemsHtml[side] !== html) {
+        itemsEl.innerHTML = html;
+        this.lastItemsHtml[side] = html;
+      }
     }
+  }
+
+  private showBanner(text: string): void {
+    const el = this.root.querySelector('[data-banner]') as HTMLElement;
+    el.textContent = text;
+    el.classList.add('show');
+    this.bannerTimer = 1.4;
   }
 
   private syncHud(): void {
@@ -331,9 +355,21 @@ export class VersusScreen {
       }
       // 事件 → fx（音效暂用简化映射）
       for (const e of this.game.events) {
-        if (e.t === 'hit') this.fx.enemyFlash(e.enemyId ?? 0);
+        if (e.t === 'hit') {
+          this.fx.enemyFlash(e.enemyId ?? 0);
+        } else if (e.t === 'itemUsed' && e.item) {
+          const who = e.side === 'p1' ? this.game.p1.name : this.game.p2.name;
+          this.showBanner(`${who} 用「${ITEMS[e.item].name}」`);
+          this.audio.ui('click');
+        }
       }
       this.game.events = [];
+    }
+    if (this.bannerTimer > 0) {
+      this.bannerTimer -= rawDt;
+      if (this.bannerTimer <= 0) {
+        (this.root.querySelector('[data-banner]') as HTMLElement).classList.remove('show');
+      }
     }
     this.fx.update(rawDt);
     this.syncHud();
@@ -357,6 +393,8 @@ export class VersusScreen {
   destroy(): void {
     cancelAnimationFrame(this.raf);
     document.removeEventListener('visibilitychange', this.onVisibility);
+    window.removeEventListener('pointerdown', this.initAudio);
+    window.removeEventListener('resize', this.onResize);
     this.audio.stopBgm();
   }
 }

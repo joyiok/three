@@ -2,6 +2,17 @@ export type CellKind = 'path' | 'grass' | 'rock';
 export type SoldierKind = '刀' | '枪' | '弓' | '骑' | '忠';
 export type EnemyKind = '斗' | '贼' | '兵' | '将' | 'boss';
 
+/** 战役消耗型道具（击杀掉落，存入锦囊） */
+export type ItemKind =
+  | 'fire' // 火攻：点选一格，范围灼烧（无视护甲）
+  | 'arrowRain' // 箭雨：全场敌军各中一矢
+  | 'rockfall' // 落石：重创最前方敌军（无视护甲）
+  | 'slowAll' // 缓兵：全场敌军减速数秒
+  | 'rally' // 鼓舞：全军攻速提升数秒
+  | 'heal' // 修营：营寨回血
+  | 'food' // 征粮：立得粮食
+  | 'merge'; // 神合：随机一对同字同级士兵立即合成
+
 export interface Vec {
   x: number;
   y: number;
@@ -92,6 +103,8 @@ export type GameEvent =
   | { t: 'kill'; x: number; y: number; bounty: number; enemyId: number }
   | { t: 'leak'; damage: number }
   | { t: 'income'; amount: number; source: 'early' | 'interest' | 'farm' }
+  | { t: 'itemGain'; item: ItemKind; x: number; y: number }
+  | { t: 'itemUse'; item: ItemKind; cell?: Vec }
   | { t: 'waveStart'; wave: number }
   | { t: 'boss'; word: string }
   | { t: 'won' }
@@ -119,4 +132,10 @@ export interface GameState {
   events: GameEvent[];
   nextId: number;
   time: number;
+  /** 锦囊：击杀掉落的消耗型道具 */
+  items: ItemKind[];
+  /** 鼓舞（全军攻速加成）截止时刻 */
+  rallyUntil: number;
+  /** 缓兵（全场敌军减速）截止时刻 */
+  slowAllUntil: number;
 }

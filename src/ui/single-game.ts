@@ -1,4 +1,5 @@
 import { Engine } from '../game/engine';
+import { FIRE_RADIUS, ITEM_DEFS, useItem } from '../game/items';
 import { moveSoldier, recruit, sellSoldier, soldierAt } from '../game/state';
 import { callWave } from '../game/waves';
 import type { LevelDef, Loc, SoldierKind, Vec } from '../game/types';
@@ -45,6 +46,10 @@ export class SingleGameScreen {
   private drag: DragState | null = null;
   private ghost: DragGhost | null = null;
   private selected: Vec | null = null;
+  /** 待瞄准的锦囊道具序号（火攻），null=未选 */
+  private armedItem: number | null = null;
+  /** 瞄准中的画布像素位置 */
+  private aim: { px: number; py: number } | null = null;
   private muted = false;
   private audio = new GameAudio();
   private bannerWave: HTMLElement;
@@ -118,21 +123,55 @@ export class SingleGameScreen {
           this.dock.update(this.engine.gs, this.engine.level);
         }
       },
+      onItemTap: (index) => this.onItemTap(index),
     });
 
     this.bindCanvasDrag();
     this.bindShovel();
 
-    const initAudio = () => {
-      this.audio.init();
-      this.audio.startBgm();
-      window.removeEventListener('pointerdown', initAudio);
-    };
-    window.addEventListener('pointerdown', initAudio);
+    window.addEventListener('pointerdown', this.initAudio);
+    window.addEventListener('resize', this.onResize);
 
     this.lastTs = performance.now();
     this.loop(this.lastTs);
     document.addEventListener('visibilitychange', this.onVisibility);
+
+    // 仅开发环境：暴露引擎供无头浏览器验证脚本驱动
+    if (import.meta.env.DEV) {
+      (window as unknown as { __engine?: Engine }).__engine = this.engine;
+    }
+  }
+
+  private initAudio = (): void => {
+    this.audio.init();
+    this.audio.startBgm();
+    window.removeEventListener('pointerdown', this.initAudio);
+  };
+
+  private onResize = (): void => {
+    this.renderer.resize();
+  };
+
+  /** 点击锦囊道具：需瞄准的进入瞄准态，其余立即释放 */
+  private onItemTap(index: number): void {
+    const gs = this.engine.gs;
+    const item = gs.items[index];
+    if (!item) return;
+    if (ITEM_DEFS[item].targeted) {
+      this.armedItem = this.armedItem === index ? null : index;
+      this.dock.armedIndex = this.armedItem;
+      this.aim = null;
+      if (this.armedItem !== null) {
+        this.queueCallout(`点选战场施放「${ITEM_DEFS[item].name}」`, 'callout-item', 1.4);
+      }
+      return;
+    }
+    this.armedItem = null;
+    this.dock.armedIndex = null;
+    if (!useItem(gs, this.engine.level, index)) {
+      this.audio.ui('error');
+    }
+    this.dock.update(gs, this.engine.level);
   }
 
   private bindCanvasDrag(): void {
@@ -142,12 +181,28 @@ export class SingleGameScreen {
       const py = ev.clientY - rect.top;
       const cell = this.renderer.pxToCell(px, py);
       if (!cell) return;
+      // 瞄准态：本次点击用于释放道具
+      if (this.armedItem !== null) {
+        if (useItem(this.engine.gs, this.engine.level, this.armedItem, cell)) {
+          this.armedItem = null;
+          this.dock.armedIndex = null;
+          this.aim = null;
+        } else {
+          this.audio.ui('error');
+        }
+        return;
+      }
       const s = soldierAt(this.engine.gs, cell);
       if (s) {
         this.startDrag({ type: 'cell', cell }, ev);
       } else {
         this.selected = cell;
       }
+    });
+    this.canvas.addEventListener('pointermove', (ev) => {
+      if (this.armedItem === null) return;
+      const rect = this.canvas.getBoundingClientRect();
+      this.aim = { px: ev.clientX - rect.left, py: ev.clientY - rect.top };
     });
   }
 
@@ -397,6 +452,7 @@ export class SingleGameScreen {
       ghost: this.ghost,
       selected: this.selected,
       dragFrom: this.drag && this.drag.from.type === 'cell' ? this.drag.from.cell : null,
+      aim: this.armedItem !== null && this.aim ? { ...this.aim, radius: FIRE_RADIUS } : null,
     });
     if (this.engine.gs.status !== 'playing') {
       cancelAnimationFrame(this.raf);
@@ -411,6 +467,8 @@ export class SingleGameScreen {
   destroy(): void {
     cancelAnimationFrame(this.raf);
     document.removeEventListener('visibilitychange', this.onVisibility);
+    window.removeEventListener('pointerdown', this.initAudio);
+    window.removeEventListener('resize', this.onResize);
     this.audio.stopBgm();
   }
 }
