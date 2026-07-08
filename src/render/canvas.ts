@@ -18,6 +18,8 @@ export interface DrawOpts {
   selected?: Vec | null;
   /** 拖动中的源格，绘制时半透明 */
   dragFrom?: Vec | null;
+  /** 道具瞄准圈（画布像素坐标 + 格单位半径） */
+  aim?: { px: number; py: number; radius: number } | null;
 }
 
 const KAI = '"Kaiti SC","KaiTi","STKaiti","Noto Serif SC",serif';
@@ -454,6 +456,28 @@ export class Renderer {
     }
 
     fx.drawWorld(c, this.cell);
+
+    // 道具瞄准圈（火攻）
+    if (opts.aim) {
+      c.save();
+      c.strokeStyle = 'rgba(192,57,43,0.85)';
+      c.fillStyle = 'rgba(192,57,43,0.14)';
+      c.lineWidth = 2;
+      c.setLineDash([7, 5]);
+      c.beginPath();
+      c.arc(opts.aim.px, opts.aim.py, opts.aim.radius * this.cell, 0, Math.PI * 2);
+      c.fill();
+      c.stroke();
+      c.setLineDash([]);
+      // 中心十字
+      c.beginPath();
+      c.moveTo(opts.aim.px - 6, opts.aim.py);
+      c.lineTo(opts.aim.px + 6, opts.aim.py);
+      c.moveTo(opts.aim.px, opts.aim.py - 6);
+      c.lineTo(opts.aim.px, opts.aim.py + 6);
+      c.stroke();
+      c.restore();
+    }
 
     // 拖动幽灵
     if (opts.ghost) {

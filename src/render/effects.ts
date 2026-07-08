@@ -1,4 +1,5 @@
-import type { GameEvent, Vec } from '../game/types';
+import { ITEM_DEFS } from '../game/items';
+import type { GameEvent, ItemKind, Vec } from '../game/types';
 
 interface Particle {
   x: number; y: number; vx: number; vy: number;
@@ -231,6 +232,14 @@ export class Effects {
         this.shake(12);
         this.hitstop = 0.08;
         break;
+      case 'itemGain':
+        this.float(e.x, e.y - 0.6, `得·${ITEM_DEFS[e.item].name}`, '#9a7426', 0.32);
+        this.burst(e.x, e.y, 8, '#c89b3c', 1.5, 0.05, 'shard');
+        this.ring(e.x, e.y, 0.06, 0.5, '#c89b3c', 3, 0.4);
+        break;
+      case 'itemUse':
+        this.itemUseFx(e.item, e.cell);
+        break;
       case 'shoot':
         // 攻击冲刺由 combat 触发 soldierLunge；此处只做刀光
         if (e.kind === '刀' || e.kind === '骑' || e.kind === '枪') {
@@ -255,6 +264,68 @@ export class Effects {
         }
         break;
       default:
+        break;
+    }
+  }
+
+  /** 道具释放特效 */
+  private itemUseFx(item: ItemKind, cell?: Vec): void {
+    const cx = cell?.x ?? 3;
+    const cy = cell?.y ?? 4.5;
+    switch (item) {
+      case 'fire':
+        this.inkSplash(cx, cy, 16, '#c0392b');
+        this.inkSplash(cx, cy, 12, '#e07b39');
+        this.ring(cx, cy, 0.15, 1.6, '#c0392b', 5, 0.5, 'rgba(224,123,57,0.22)');
+        this.shock(cx, cy, 1.4, 'rgba(192,57,43,0.45)');
+        this.float(cx, cy - 0.8, '火攻', '#c0392b', 0.4);
+        this.shake(7);
+        this.hitstop = Math.max(this.hitstop, 0.06);
+        break;
+      case 'arrowRain':
+        // 从天而降的箭矢碎片
+        for (let i = 0; i < 26; i++) {
+          this.particles.push({
+            x: Math.random() * 7 - 0.5,
+            y: -0.6 - Math.random() * 1.2,
+            vx: (Math.random() - 0.5) * 0.4,
+            vy: 5 + Math.random() * 3,
+            life: 0,
+            ttl: 0.6 + Math.random() * 0.5,
+            size: 0.05 + Math.random() * 0.04,
+            color: '#4a3c31',
+            shape: 'shard',
+            rot: Math.PI / 2,
+            vr: 0,
+          });
+        }
+        this.float(3, 3.2, '箭雨', '#4a3c31', 0.42);
+        this.shake(4);
+        break;
+      case 'rockfall':
+        this.float(3, 3.2, '落石', '#57544e', 0.42);
+        this.shake(9);
+        this.hitstop = Math.max(this.hitstop, 0.06);
+        break;
+      case 'slowAll':
+        this.ring(3, 4.5, 0.3, 4.6, '#9a7426', 4, 0.7, 'rgba(200,155,60,0.08)');
+        this.float(3, 3.2, '缓兵之计', '#9a7426', 0.4);
+        break;
+      case 'rally':
+        this.ring(3, 4.5, 0.3, 4.6, '#b03a2e', 4, 0.7, 'rgba(176,58,46,0.07)');
+        this.float(3, 3.2, '擂鼓！全军振奋', '#b03a2e', 0.38);
+        this.shake(3);
+        break;
+      case 'heal':
+        this.float(3, 7.6, '+2 ♥ 修营', '#2e7d4f', 0.38);
+        this.ring(3, 8.4, 0.1, 0.9, '#2e7d4f', 3, 0.5);
+        break;
+      case 'food':
+        this.float(3, 7.6, '+15🍚 征粮', '#9a7426', 0.38);
+        break;
+      case 'merge':
+        // 合成本身另有 merge 事件特效，这里只标一下来源
+        this.float(3, 3.2, '神合', '#9a7426', 0.4);
         break;
     }
   }

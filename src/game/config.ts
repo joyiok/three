@@ -1,4 +1,4 @@
-import type { EnemyKind, SoldierKind } from './types';
+import type { EnemyKind, ItemKind, SoldierKind } from './types';
 
 export const GRID_W = 7;
 export const GRID_H = 10;
@@ -35,6 +35,33 @@ export const DAZE_TIME = 0.8;
 /** Boss 低于半血狂暴提速 */
 export const BOSS_ENRAGE_HP = 0.5;
 export const BOSS_ENRAGE_SPEED = 1.4;
+/** 道具「鼓舞」：全军攻速倍率与持续时长（秒） */
+export const RALLY_RATE_MULT = 1.5;
+export const RALLY_TIME = 8;
+/** 道具「缓兵」：全场敌军减速比例与持续时长（秒） */
+export const SLOW_ALL_AMOUNT = 0.5;
+export const SLOW_ALL_TIME = 5;
+/** 锦囊容量 */
+export const ITEM_BAG_MAX = 3;
+
+export const ITEM_KINDS: ItemKind[] = [
+  'fire', 'arrowRain', 'rockfall', 'slowAll', 'rally', 'heal', 'food', 'merge',
+];
+
+/** 各敌种击杀掉落道具的概率 */
+export const ITEM_DROP_CHANCE: Record<EnemyKind, number> = {
+  斗: 0.03,
+  贼: 0.03,
+  兵: 0.07,
+  将: 0.45,
+  boss: 1,
+};
+
+/** 击杀掉落判定：返回掉落的道具种类或 null */
+export function rollItemDrop(kind: EnemyKind, rand: () => number = Math.random): ItemKind | null {
+  if (rand() >= ITEM_DROP_CHANCE[kind]) return null;
+  return ITEM_KINDS[Math.floor(rand() * ITEM_KINDS.length)];
+}
 
 export interface SoldierSpec {
   range: number;

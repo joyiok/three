@@ -209,6 +209,11 @@ body {
   border-color: var(--gold);
   color: #f8efdc;
 }
+.banner-callout.callout-item {
+  background: linear-gradient(180deg, rgba(154, 116, 38, 0.92), rgba(110, 83, 22, 0.92));
+  border-color: #6e5316;
+  color: #fff6dd;
+}
 .banner-callout.callout-elite {
   background: linear-gradient(180deg, rgba(200, 155, 60, 0.92), rgba(154, 116, 38, 0.92));
   border-color: #7f5c13;
@@ -297,6 +302,69 @@ body {
 .wave-preview-item b {
   font-size: 16px;
   color: var(--cinnabar-dk);
+}
+/* 锦囊道具栏 */
+.item-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  min-height: 32px;
+}
+.item-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 30px;
+  padding: 0 10px;
+  border-radius: 8px;
+  border: 1px solid var(--gold-dk);
+  background: linear-gradient(180deg, #f3e7c8, #e6d3a4);
+  color: var(--ink);
+  font-family: var(--font-kai);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.16);
+  transition: transform 0.12s, box-shadow 0.12s, filter 0.12s;
+}
+.item-btn:active {
+  transform: scale(0.93);
+}
+.item-btn .item-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--cinnabar);
+  color: var(--paper-soft);
+  font-size: 12px;
+}
+.item-btn.item-armed {
+  border-color: var(--cinnabar-dk);
+  background: linear-gradient(180deg, #f0c9b4, #e0a184);
+  box-shadow: 0 0 0 2px rgba(176, 58, 46, 0.4), 0 2px 6px rgba(0, 0, 0, 0.2);
+  animation: item-armed-pulse 0.9s ease-in-out infinite;
+}
+@keyframes item-armed-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.07); }
+}
+.item-empty {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: 1px dashed rgba(74, 60, 49, 0.4);
+  color: rgba(74, 60, 49, 0.35);
+  font-family: var(--font-kai);
+  font-size: 13px;
 }
 .camp {
   width: 40px;
